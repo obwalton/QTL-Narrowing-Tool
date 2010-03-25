@@ -28,8 +28,11 @@ import com.google.gwt.user.client.ui.ScrollPanel;
 import com.google.gwt.user.client.ui.TextBox;
 import com.google.gwt.user.client.ui.VerticalPanel;
 import com.google.gwt.user.client.ui.Widget;
+import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
 
 /**
  * Main entry point.
@@ -56,6 +59,7 @@ public class QTLNarrowingEntryPoint implements EntryPoint {
     private Button mgiButton = new Button("Search MGI");
     private Label uploadLabel = new Label("Upload Custom QTL File:");
     private Button uploadButton = new Button("Upload");
+    private final FileUpload upload = new FileUpload();
     private FlexTable qtlTable = new FlexTable();
     // Create the popup dialog box for use sending messages
     private final DialogBox dialogBox = new DialogBox();
@@ -67,6 +71,7 @@ public class QTLNarrowingEntryPoint implements EntryPoint {
     private Button gexUploadButton = new Button("Define Exp. Desgn");
     private Button narrowButton = new Button("Narrow QTLs");
     private Button clearButton = new Button("Clear");
+    private VerticalPanel resultsPanel = new VerticalPanel();
 
 
 
@@ -121,7 +126,7 @@ public class QTLNarrowingEntryPoint implements EntryPoint {
         panel.add(mgiPanel);
 
         // Create a FileUpload widget.
-	final FileUpload upload = new FileUpload();
+	
 	upload.setName("uploadQTLFile");
         HorizontalPanel uploadPanel = new HorizontalPanel();
 	uploadPanel.setSpacing(5);
@@ -135,20 +140,8 @@ public class QTLNarrowingEntryPoint implements EntryPoint {
       	panel.add(uploadPanel);
 
         masterPanel.add(form);
-        qtlTable.addStyleName("FlexTable");
-        qtlTable.insertRow(0);
-        //qtlTable.getRowFormatter().addStyleName(0,"FlexTable-Header");
 
-        addColumn(qtlTable, 0, "QTL ID");
-        addColumn(qtlTable, 0, "Phenotype");
-        addColumn(qtlTable, 0, "Species");
-        addColumn(qtlTable, 0, "High Resp Strain");
-        addColumn(qtlTable, 0, "Low Resp Strain");
-        addColumn(qtlTable, 0, "Chr");
-        addColumn(qtlTable, 0, "QTL Start");
-        addColumn(qtlTable, 0, "QTL End");
-        addColumn(qtlTable, 0, "Bld");
-
+        initQtlTable();
         ScrollPanel scrollPanel = new ScrollPanel();
         qtlTable.setWidth("100%");
         scrollPanel.add(qtlTable);
@@ -259,6 +252,8 @@ public class QTLNarrowingEntryPoint implements EntryPoint {
             public void onClick(ClickEvent event) {
                 dialogBox.hide();
                 uploadButton.setEnabled(true);
+                gexUploadButton.setEnabled(true);
+                narrowButton.setEnabled(true);
             }
         });
 
@@ -345,6 +340,84 @@ public class QTLNarrowingEntryPoint implements EntryPoint {
         });
 
 
+        // Functionality for the MGI Button
+        narrowButton.addClickHandler(new ClickHandler() {
+
+            public void onClick(ClickEvent event) {
+                narrowButton.setEnabled(false);
+
+                ArrayList<List> qtls = new ArrayList<List>();
+                //  Skip line 0 as it's a header row
+                for (int i = 1; i < qtlTable.getRowCount(); i++) {
+                    ArrayList row = new ArrayList();
+                    for (int j = 0; j < qtlTable.getCellCount(i); j++) {
+                        row.add(qtlTable.getText(i,j));
+                    }
+                    qtls.add((List)row);
+                }
+                System.out.println("Calling getSmallestCommonRegions");
+                qtlService.getSmallestCommonRegions((List<List>)qtls, new AsyncCallback<Map<String, List<GWTRegion>>>() {
+
+                    public void onFailure(Throwable caught) {
+                        System.out.println("IN FAIL CASE");
+                        // Show the RPC error message to the user
+                        dialogBox.setText("Remote Procedure Call - Failure");
+                        htmlForDialogLabel.addStyleName("serverResponseLabelError");
+                        htmlForDialogLabel.setHTML(SERVER_ERROR + "<BR>" + caught.getMessage());
+                        dialogBox.center();
+                        closeButton.setFocus(true);
+                    }
+
+                    public void onSuccess(Map<String, List<GWTRegion>> results) {
+                        System.out.println("IN SUCCESS CASE");
+
+                        FlexTable resultsTable = new FlexTable();
+                        resultsTable.addStyleName("FlexTable");
+                        resultsTable.insertRow(0);
+                        //qtlTable.getRowFormatter().addStyleName(0,"FlexTable-Header");
+
+                        addColumn(resultsTable, 0, "Chromosome");
+                        addColumn(resultsTable, 0, "Build");
+                        addColumn(resultsTable, 0, "Start");
+                        addColumn(resultsTable, 0, "End");
+
+                        ScrollPanel scrollPanel = new ScrollPanel();
+                        resultsTable.setWidth("100%");
+                        scrollPanel.add(resultsTable);
+                        scrollPanel.setSize("250", "200");
+
+                        Set<String> keys = results.keySet();
+                        int row = 1;
+                        for (String key : keys) {
+                            List<GWTRegion> regions = results.get(key);
+                            for (GWTRegion region : regions) {
+                                resultsTable.insertRow(row);
+                                addColumn(resultsTable, row, key);
+                                addColumn(resultsTable, row, region.getBuild());
+                                addColumn(resultsTable, row, region.getStart());
+                                addColumn(resultsTable, row, region.getEnd());
+                                row += 1;
+                            }
+                        }
+                        applyDataRowStyles(resultsTable);
+                        resultsPanel.add(resultsTable);
+			resultsPanel.setVisible(true);
+			RootPanel.get("analysisResults").add(resultsPanel);
+                        narrowButton.setEnabled(true);
+                    }
+                });
+            }
+        });
+
+        // Functionality for the Clear Button
+        clearButton.addClickHandler(new ClickHandler() {
+            public void onClick(ClickEvent event) {
+                clear();
+            }
+        });
+
+
+
     }
 
   private void addColumn(FlexTable flexTable, int HeaderRowIndex,
@@ -393,5 +466,38 @@ public class QTLNarrowingEntryPoint implements EntryPoint {
         rf.addStyleName(row, "FlexTable-EvenRow");
       }
     }
+  }
+
+  private void initQtlTable() {
+        this.qtlTable.addStyleName("FlexTable");
+        this.qtlTable.insertRow(0);
+        //qtlTable.getRowFormatter().addStyleName(0,"FlexTable-Header");
+
+        addColumn(this.qtlTable, 0, "QTL ID");
+        addColumn(this.qtlTable, 0, "Phenotype");
+        addColumn(this.qtlTable, 0, "Species");
+        addColumn(this.qtlTable, 0, "High Resp Strain");
+        addColumn(this.qtlTable, 0, "Low Resp Strain");
+        addColumn(this.qtlTable, 0, "Chr");
+        addColumn(this.qtlTable, 0, "QTL Start");
+        addColumn(this.qtlTable, 0, "QTL End");
+        addColumn(this.qtlTable, 0, "Bld");
+  }
+
+  private void clear () {
+      this.mgiTextBox.setText("");
+      this.mgiButton.setEnabled(true);
+      this.uploadButton.setEnabled(true);
+      int count = this.qtlTable.getRowCount();
+      if (count > 1) {
+          this.qtlTable.removeAllRows();
+          initQtlTable();
+      }
+      gexRadio0.setValue(true);
+      gexRadio1.setValue(false);
+      gexUploadButton.setEnabled(true);
+      narrowButton.setEnabled(true);
+      clearButton.setEnabled(true);
+      resultsPanel.setVisible(false);
   }
 }
