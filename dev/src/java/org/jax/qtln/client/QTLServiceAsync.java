@@ -7,6 +7,7 @@
 
 package org.jax.qtln.client;
 import java.util.List;
+import java.util.Map;
 
 import com.google.gwt.user.client.rpc.AsyncCallback;
 
@@ -17,4 +18,7 @@ import com.google.gwt.user.client.rpc.AsyncCallback;
  */
 public interface QTLServiceAsync {
     public void readQTLFile(AsyncCallback<List<String[]>> callback);
+
+    public void getSmallestCommonRegions(List<List> qtls, AsyncCallback<Map<String, List<GWTRegion>>> callback);
+
 }
