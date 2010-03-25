@@ -9,7 +9,7 @@ package org.jax.qtln.server;
  *
  * @author dow
  */
-public class QTL {
+public class QTL implements Region, Comparable {
     
     private String qtlID;
     private String phenotype;
@@ -62,7 +62,7 @@ public class QTL {
         this.phenotype = phenotype;
     }
 
-    public void setQtlEnd(int qtlEnd) {
+    public void setEnd(int qtlEnd) {
         this.qtlEnd = qtlEnd;
     }
 
@@ -70,7 +70,7 @@ public class QTL {
         this.qtlID = qtlID;
     }
 
-    public void setQtlStart(int qtlStart) {
+    public void setStart(int qtlStart) {
         this.qtlStart = qtlStart;
     }
 
@@ -98,7 +98,7 @@ public class QTL {
         return phenotype;
     }
 
-    public int getQtlEnd() {
+    public int getEnd() {
         return qtlEnd;
     }
 
@@ -106,7 +106,7 @@ public class QTL {
         return qtlID;
     }
 
-    public int getQtlStart() {
+    public int getStart() {
         return qtlStart;
     }
 
@@ -114,5 +114,16 @@ public class QTL {
         return species;
     }
 
+    public int compareTo (Object o) {
+        QTL other = (QTL)o;
+        int ret_val = 0;
+        if (this.getStart() < other.getStart()) {
+            ret_val = -1;
+        }
+        else if (this.getStart() > other.getStart()) {
+            ret_val = 1;
+        }
+        return ret_val;
+    }
 
 }
