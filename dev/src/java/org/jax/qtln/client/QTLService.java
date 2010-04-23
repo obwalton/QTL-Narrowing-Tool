@@ -11,6 +11,7 @@ import java.util.List;
 import com.google.gwt.user.client.rpc.RemoteService;
 import com.google.gwt.user.client.rpc.RemoteServiceRelativePath;
 import java.util.Map;
+import org.jax.qtln.regions.Region;
 
 /**
  *
@@ -20,6 +21,8 @@ import java.util.Map;
 public interface QTLService extends RemoteService{
     public List<String[]> readQTLFile() throws Throwable;
 
-    public Map<String, List<GWTRegion>> getSmallestCommonRegions(List<List> qtls)
+    public Map<String, List<Region>> narrowQTLs(List<List> qtls)
             throws Throwable;
+
+    public String getNarrowingStatus() throws Throwable;
 }
