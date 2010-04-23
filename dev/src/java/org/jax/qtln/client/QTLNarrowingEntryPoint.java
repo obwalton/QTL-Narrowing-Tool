@@ -11,6 +11,7 @@ import com.google.gwt.user.client.ui.Label;
 import com.google.gwt.user.client.ui.RootPanel;
 import com.google.gwt.event.dom.client.ClickEvent;
 import com.google.gwt.event.dom.client.ClickHandler;
+import com.google.gwt.user.client.Timer;
 import com.google.gwt.user.client.rpc.AsyncCallback;
 import com.google.gwt.user.client.ui.DialogBox;
 import com.google.gwt.user.client.ui.FileUpload;
@@ -28,11 +29,15 @@ import com.google.gwt.user.client.ui.ScrollPanel;
 import com.google.gwt.user.client.ui.TextBox;
 import com.google.gwt.user.client.ui.VerticalPanel;
 import com.google.gwt.user.client.ui.Widget;
+import com.google.gwt.widgetideas.client.ProgressBar;
+
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import org.jax.qtln.regions.Region;
+import org.jax.qtln.regions.SNP;
 
 /**
  * Main entry point.
@@ -73,6 +78,8 @@ public class QTLNarrowingEntryPoint implements EntryPoint {
     private Button clearButton = new Button("Clear");
     private VerticalPanel resultsPanel = new VerticalPanel();
 
+    private final DialogBox progressDialog = new DialogBox();
+    private final ProgressBar progressBar = new ProgressBar(0.0,100.0,0.0);
 
 
     // Tracks the next row we'll add to our qtlTable
@@ -257,6 +264,16 @@ public class QTLNarrowingEntryPoint implements EntryPoint {
             }
         });
 
+        //progressBar.setSize("100px", "25px");
+        progressDialog.setText("Narrowing QTLs");
+        //progressDialog.setAnimationEnabled(true);
+        VerticalPanel progressPanel = new VerticalPanel();
+        final Label progressLabel = new Label("Processing...");
+        progressPanel.add(progressLabel);
+        progressPanel.add(progressBar);
+        progressBar.setTextVisible(false);
+
+        progressDialog.setWidget(progressPanel);
 
 
         // Add an event handler for the upload form
@@ -339,6 +356,30 @@ public class QTLNarrowingEntryPoint implements EntryPoint {
             }
         });
 
+        //  Used to provide feedback on processing of qtl narrowing...
+        final AsyncCallback statusCallback = new AsyncCallback<String>() {
+
+            public void onFailure(Throwable caught) {
+                // Show the RPC error message to the user
+                dialogBox.setText("Unable to get status - Failure");
+                htmlForDialogLabel.addStyleName("serverResponseLabelError");
+                htmlForDialogLabel.setHTML(SERVER_ERROR + "<BR>" + caught.getMessage());
+                dialogBox.center();
+                closeButton.setFocus(true);
+                progressBar.setProgress(100.0);
+                progressLabel.setText("Done!");
+            }
+
+            public void onSuccess(String status) {
+
+                progressLabel.setText(status);
+                double progress = progressBar.getProgress();
+                progressBar.setProgress(progress + (100 - progress) / 4);
+                if (status.equals("Done!")) {
+                    progressBar.setProgress(100.0);
+                }
+            }
+        };
 
         // Functionality for the MGI Button
         narrowButton.addClickHandler(new ClickHandler() {
@@ -355,10 +396,32 @@ public class QTLNarrowingEntryPoint implements EntryPoint {
                     }
                     qtls.add((List)row);
                 }
-                System.out.println("Calling getSmallestCommonRegions");
-                qtlService.getSmallestCommonRegions((List<List>)qtls, new AsyncCallback<Map<String, List<GWTRegion>>>() {
+
+                Timer timer = new Timer() {
+
+                    public void run() {
+                        double progress = progressBar.getProgress();
+                        if (progress >= 100.0) {
+                            cancel();
+                            progressDialog.hide();
+                        } else if (progress == 0) {
+                            progressBar.setProgress(1);
+                        } else {
+                            qtlService.getNarrowingStatus(statusCallback);
+                        }
+                    }
+                };
+                progressLabel.setText("Processing...");
+                progressBar.setProgress(0);
+                timer.scheduleRepeating(1000);
+                progressDialog.center();
+
+
+                System.out.println("Calling narrowQTLs");
+                qtlService.narrowQTLs((List<List>)qtls, new AsyncCallback<Map<String, List<Region>>>() {
 
                     public void onFailure(Throwable caught) {
+                        progressBar.setProgress(100.0);
                         System.out.println("IN FAIL CASE");
                         // Show the RPC error message to the user
                         dialogBox.setText("Remote Procedure Call - Failure");
@@ -368,7 +431,7 @@ public class QTLNarrowingEntryPoint implements EntryPoint {
                         closeButton.setFocus(true);
                     }
 
-                    public void onSuccess(Map<String, List<GWTRegion>> results) {
+                    public void onSuccess(Map<String, List<Region>> results) {
                         System.out.println("IN SUCCESS CASE");
 
                         FlexTable resultsTable = new FlexTable();
@@ -380,6 +443,14 @@ public class QTLNarrowingEntryPoint implements EntryPoint {
                         addColumn(resultsTable, 0, "Build");
                         addColumn(resultsTable, 0, "Start");
                         addColumn(resultsTable, 0, "End");
+                        addColumn(resultsTable, 0, "SNP ID");
+                        addColumn(resultsTable, 0, "RS Num");
+                        addColumn(resultsTable, 0, "B36");
+                        addColumn(resultsTable, 0, "B37");
+                        addColumn(resultsTable, 0, "HR<br>Base");
+                        addColumn(resultsTable, 0, "LR<br>Base");
+                        addColumn(resultsTable, 0, "HR Strains");
+                        addColumn(resultsTable, 0, "LR Strains");
 
                         ScrollPanel scrollPanel = new ScrollPanel();
                         resultsTable.setWidth("100%");
@@ -389,17 +460,63 @@ public class QTLNarrowingEntryPoint implements EntryPoint {
                         Set<String> keys = results.keySet();
                         int row = 1;
                         for (String key : keys) {
-                            List<GWTRegion> regions = results.get(key);
-                            for (GWTRegion region : regions) {
+                            List<Region> regions = results.get(key);
+                            int numSNPs = 0;
+                            for (Region region : regions) {
+                                List<SNP> snps = region.getSnps();
                                 resultsTable.insertRow(row);
                                 addColumn(resultsTable, row, key);
                                 addColumn(resultsTable, row, region.getBuild());
                                 addColumn(resultsTable, row, region.getStart());
                                 addColumn(resultsTable, row, region.getEnd());
-                                row += 1;
+                                if (snps != null) {
+                                    numSNPs = snps.size();
+                                    if (numSNPs == 1) {
+                                        SNP snp = snps.get(0);
+                                        addColumn(resultsTable, row, snp.getSnpId());
+                                        addColumn(resultsTable, row, snp.getRsNumber());
+                                        addColumn(resultsTable, row, snp.getBuild36Position());
+                                        addColumn(resultsTable, row, snp.getBuild37Position());
+                                        addColumn(resultsTable, row, snp.getHighRespondingBaseValue());
+                                        addColumn(resultsTable, row, snp.getLowRespondingBaseValue());
+                                        if (snp.getHighRespondingStrains() != null) {
+                                            addColumn(resultsTable, row, snp.getHighRespondingStrains().size());
+                                            if (snp.getLowRespondingStrains() != null) {
+                                                addColumn(resultsTable, row, snp.getHighRespondingStrains().size());
+                                            }
+                                        }
+                                        row += 1;
+                                    }
+                                    else if (numSNPs > 1) {
+                                        resultsTable.getFlexCellFormatter().setRowSpan(row, 0, numSNPs);
+                                        resultsTable.getFlexCellFormatter().setRowSpan(row, 1, numSNPs);
+                                        resultsTable.getFlexCellFormatter().setRowSpan(row, 2, numSNPs);
+                                        resultsTable.getFlexCellFormatter().setRowSpan(row, 3, numSNPs);
+                                        for (SNP snp: snps) {
+                                            addColumn(resultsTable, row, snp.getSnpId());
+                                            addColumn(resultsTable, row, snp.getRsNumber());
+                                            addColumn(resultsTable, row, snp.getBuild36Position());
+                                            addColumn(resultsTable, row, snp.getBuild37Position());
+                                            addColumn(resultsTable, row, snp.getHighRespondingBaseValue());
+                                            addColumn(resultsTable, row, snp.getLowRespondingBaseValue());
+                                            if (snp.getHighRespondingStrains() != null) {
+                                                addColumn(resultsTable, row, snp.getHighRespondingStrains().size());
+                                                if (snp.getLowRespondingStrains() != null) {
+                                                    addColumn(resultsTable, row, snp.getHighRespondingStrains().size());
+                                                }
+                                            }
+                                            row += 1;
+                                        }
+                                    } else {
+                                        row += 1;
+                                    }
+                                } else {
+                                    row += 1;
+                                }
                             }
                         }
                         applyDataRowStyles(resultsTable);
+                        progressBar.setProgress(100.0);
                         resultsPanel.add(resultsTable);
 			resultsPanel.setVisible(true);
 			RootPanel.get("analysisResults").add(resultsPanel);
