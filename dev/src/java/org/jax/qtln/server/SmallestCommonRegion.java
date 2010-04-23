@@ -5,6 +5,10 @@
 
 package org.jax.qtln.server;
 
+import org.jax.qtln.regions.QTL;
+import org.jax.qtln.regions.QTLSet;
+import org.jax.qtln.regions.OverlappingRegion;
+import org.jax.qtln.regions.Region;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Iterator;
@@ -81,15 +85,11 @@ public class SmallestCommonRegion {
                     region.setEnd(minEnd);
                     // set minEnd to this QTL's end, temporarily
                     minEnd = qtl.getEnd();
-                    QTLSet regionQTLs = region.getQtls();
                     ArrayList<QTL> markForRemoval = new ArrayList();
                     for (Iterator iter = contributingQTLs.iterator(); iter.hasNext();) {
                         QTL contribQtl = (QTL)iter.next();
-                        try {
-                            regionQTLs.addQTL(contribQtl);
-                        } catch (InvalidChromosomeException ice) {
-                            //  do nothing, we're dealing with a single chr
-                        }
+                        region.addQtl(contribQtl);
+                        
                         if (contribQtl.getEnd() < qtl.getStart()) {
                             markForRemoval.add(contribQtl);
                             //contributingQTLs.remove(contribQtl);
@@ -110,14 +110,9 @@ public class SmallestCommonRegion {
             OverlappingRegion region = new OverlappingRegion(chr, build);
             region.setStart(maxStart);
             region.setEnd(minEnd);
-            QTLSet regionQTLs = region.getQtls();
             for (Iterator iter = contributingQTLs.iterator(); iter.hasNext();) {
                 QTL contribQTL = (QTL)iter.next();
-                try {
-                    regionQTLs.addQTL(contribQTL);
-                } catch (InvalidChromosomeException ice) {
-                    //  do nothing, we're dealing with a single chr
-                }
+                region.addQtl(contribQTL);
             }
             regions.add(region);
             chrRegionMap.put(chr, regions);
