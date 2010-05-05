@@ -5,6 +5,7 @@
 
 package org.jax.qtln.server;
 
+import java.util.HashMap;
 import org.jax.qtln.regions.SNPDoesNotMeetCriteriaException;
 import org.jax.qtln.regions.OverlappingRegion;
 import org.jax.qtln.regions.SNP;
@@ -86,6 +87,7 @@ public class HaplotypeAnalyzer {
         //      Low responding strains
         List highRespondingStrains = region.getHighRespondingStrains();
         List lowRespondingStrains = region.getLowRespondingStrains();
+        HashMap<String, Integer>  diagnostics = new HashMap<String, Integer>();
         
         //  Get look-up for this chromosome
         SNPFile snpLookup = this.cgdSNPLookup.get(chromosome);
@@ -96,24 +98,37 @@ public class HaplotypeAnalyzer {
 
         // Get all the SNPs that meet the criteria and add them to the
         // region. (criteria defined in class header and the SNPFile class...)
+        int snp_count = 0;
         for (int snp_position:snpSubSet) {
             SNP snp = null;
             try {
                 snp = snpLookup.analyzeSNP(snp_position, region.getBuild(),
                         highRespondingStrains, lowRespondingStrains);
-                if (snp != null) {
-                    System.out.println("Kept SNP " + snp.getSnpId() + " " + snp.getBuild36Position());
-                }
             }
             catch (SNPDoesNotMeetCriteriaException e) {
                 //  TODO:  Consider logging snps that fail criteria and why
+                if(diagnostics.containsKey(e.getMessage())) {
+                    int value = diagnostics.get(e.getMessage()).intValue();
+                    value++;
+                    diagnostics.put(e.getMessage(), value);
+                }
+                else {
+                    diagnostics.put(e.getMessage(), 1);
+                }
                 continue;
             }
             // If SNP kept add to our region
             if (snp != null)
                 region.addSnp(snp);
-        }
+                ++snp_count;
 
+        }
+        System.out.println("Kept " + snp_count + " for region");
+
+        // Print out some diagnostics about rejected snps
+        for (String key:diagnostics.keySet()) {
+            System.out.println(key + " " + diagnostics.get(key));
+        }
         return region;
     }
 
