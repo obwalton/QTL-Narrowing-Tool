@@ -1,7 +1,9 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<module >
+<module>
   <inherits name="com.google.gwt.user.User"/>
   <inherits name="com.google.gwt.user.theme.standard.Standard"/>
+  <inherits name="com.google.gwt.widgetideas.WidgetIdeas"/>
+  <inherits name="org.jax.qtln.regions"/>
   <entry-point class="org.jax.qtln.client.QTLNarrowingEntryPoint"/>
   <!-- Do not define servlets here, use web.xml -->
   <stylesheet src="QTL.css"/>
