@@ -11,14 +11,14 @@ import java.io.File;
 import java.io.FileReader;
 import java.io.IOException;
 import java.util.ArrayList;
-//import java.util.BitSet;
+import java.util.BitSet;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.regex.Pattern;
 import java.util.regex.Matcher;
-import org.devbrat.util.WAHBitSet;
+//import org.devbrat.util.WAHBitSet;
 import org.jax.qtln.regions.SNP;
 
 
@@ -49,7 +49,8 @@ public class SNPFile {
     private File physicalFile;
     private String chromosome;
     private String[] strain_array;
-    private Map<String, WAHBitSet> strainBaseCalls;
+    //private Map<String, WAHBitSet> strainBaseCalls;
+    private Map<String, BitSet> strainBaseCalls;
     private char[] baseCall1_array;
     private char[] baseCall0_array;
     private String[] snpIds_array;
@@ -81,7 +82,8 @@ public class SNPFile {
 
         this.physicalFile = new File(snpDir.getAbsolutePath() + 
                 File.separator + snpFile.getName());
-        this.strainBaseCalls = new HashMap<String, WAHBitSet>();
+        //this.strainBaseCalls = new HashMap<String, WAHBitSet>();
+        this.strainBaseCalls = new HashMap<String, BitSet>();
         this.sourceMap = new HashMap<Short, String>();
         this.revSourceMap = new HashMap<String, Short>();
 
@@ -178,10 +180,12 @@ public class SNPFile {
             if (firstLine) {
                 firstLine = false;
                 //  Get all strain names...
-                this.strainBaseCalls = new HashMap<String, WAHBitSet>();
+                //this.strainBaseCalls = new HashMap<String, WAHBitSet>();
+                this.strainBaseCalls = new HashMap<String, BitSet>();
                 for (int i =
                         SNPFile.FIRST_STRAIN_COL; i < cols.length; i++) {
-                    this.strainBaseCalls.put(cols[i], new WAHBitSet());
+                    //this.strainBaseCalls.put(cols[i], new WAHBitSet());
+                    this.strainBaseCalls.put(cols[i], new BitSet());
                     strains.add(cols[i]);
                 }
                 continue;
@@ -225,20 +229,28 @@ public class SNPFile {
                         charAt(0);
                 baseCall1.add(cur_primary_basecall);
                 // This sets the bit for the primary call to true.
+
                 this.strainBaseCalls.get(strains.get(0)).set(row);
                 // Cycle through the rest of the strain columns
                 for (int i = 1; i < strains.size(); i++) {
                     char cur_basecall = cols[SNPFile.FIRST_STRAIN_COL + i].toUpperCase().trim().charAt(0);
+
                     // if this base is the same as the primary base, set
                     // the associated bit to true
                     if (cur_basecall == cur_primary_basecall) {
                         this.strainBaseCalls.get(strains.get(i)).set(row);
-                    } //  otherwise, if the zero value has not yet been set
-                    //  set it now.  No need to set a bit as any bit not
-                    //  "true" is assumed to be false.
+                    }
+                    //  otherwise, if the zero value has not yet been set
+                    //  set it now. 
                     else if (!isZeroSet) {
                         baseCall0.add(cur_basecall);
+                        isZeroSet = true;
+                        this.strainBaseCalls.get(strains.get(i)).set(row, false);
                     }
+                    else {
+                        this.strainBaseCalls.get(strains.get(i)).set(row, false);
+                    }
+
                 }
 
                 //  if the two master lists of basecalls are not of
@@ -250,6 +262,7 @@ public class SNPFile {
                 }
 
             }
+            ++row;
         }
         bufferedReader.close();
         fileReader.close();
@@ -306,6 +319,7 @@ public class SNPFile {
         else
             positionLookup = this.b37Positions_array;
 
+        System.out.println("for positions " + start + " to " + end);
         //  This will be the first position in the array of positions in the
         //  Lookup that maps to our start position.
         int start_index = -1;
@@ -353,7 +367,6 @@ public class SNPFile {
         }
         // Now take the start and end indicies and get a subList of positions
         // to return.
-        System.out.println("for positions " + start + " to " + end);
         System.out.println("selecting snps from " + start_index + " to " + end_index);
 
         int[] positions = new int[0];
@@ -398,6 +411,11 @@ public class SNPFile {
                         List<String> lowRespondingStrains)
         throws SNPDoesNotMeetCriteriaException
     {
+        boolean debug = false;
+        if (snp_position == 9274546)
+            debug = true;
+
+        if (debug) System.out.println("Analyzing SNP Position " + snp_position);
         //  The list of all SNP positions for this chromosome.  Will be
         //  populated with either b36 or b37, depending on user parameter
         int[] positionLookup = null;
@@ -409,18 +427,22 @@ public class SNPFile {
             positionLookup = this.b37Positions_array;
 
         int snp_index = Arrays.binarySearch(positionLookup, snp_position);
-        if (snp_index < 0)
-            throw new SNPDoesNotMeetCriteriaException(snp_position.toString() +
-                    " is not in the list of SNPs in this region.");
-
+        if (snp_index < 0) {
+            String msg = snp_position.toString() +
+                    " is not in the list of SNPs in this region.";
+            System.out.println(msg);
+            throw new SNPDoesNotMeetCriteriaException(msg);
+        }
         //int snp_index = positionLookup.indexOf(snp_position);
 
-        //  if zero basecall is null throw exception, all strains cannot have
-        //  same base value and meet criteria
-        if (this.baseCall0_array[snp_index] < 0)
-            throw new SNPDoesNotMeetCriteriaException("For " +
-                    snp_position.toString() + " all base calls are the " +
-                    "same.");
+        //  if zero basecall is 'N' throw exception, all strains cannot have
+        //  same base value and meet criteria.  'N' is to indicate no second
+        //  base was found.
+        if (this.baseCall0_array[snp_index] == 'N') {
+            String msg = "All base calls are the same.";
+            if (debug) System.out.println(msg);
+            throw new SNPDoesNotMeetCriteriaException(msg);
+        }
 
         SNP snp = new SNP(snp_position, build);
         // Keep SNP if All high responding strains have same base value ...
@@ -428,21 +450,26 @@ public class SNPFile {
         boolean first = true;
         for (String strain : highRespondingStrains) {
             //  invalid strain throw exception
-            if (Arrays.binarySearch(this.strain_array, strain) < 0)
-                throw new SNPDoesNotMeetCriteriaException("For " +
-                        snp_position.toString() + " high responding strain " +
-                        strain + " is not a valid strain!");
-            WAHBitSet calls = strainBaseCalls.get(strain);
+            if (Arrays.binarySearch(this.strain_array, strain) < 0) {
+                String msg = "High responding strain " +
+                        strain + " is not a valid strain!";
+                if (debug) System.out.println(msg);
+                throw new SNPDoesNotMeetCriteriaException(msg);
+            }
+            //WAHBitSet calls = strainBaseCalls.get(strain);
+            BitSet calls = strainBaseCalls.get(strain);
             if (first) {
                 high = calls.get(snp_index);
+                if (debug) System.out.println("Basecall for strain " + strain + " 'High' value " + high + " at index " + snp_index);
                 first = false;
             } else {
                 //  Mismatch between two high responding strains.
                 //  throw an exception
-                if (high != calls.get(snp_index))
-                    throw new SNPDoesNotMeetCriteriaException("For " +
-                        snp_position.toString() + " nonmatching high " +
-                        " responding strain base values.");
+                if (high != calls.get(snp_index)) {
+                    String msg = "Nonmatching high responding strain base values.";
+                    if (debug) System.out.println(msg);
+                    throw new SNPDoesNotMeetCriteriaException(msg);
+                }
             }
         }
 
@@ -451,39 +478,48 @@ public class SNPFile {
         first = true;
         for (String strain : lowRespondingStrains) {
             //  invalid strain throw exception
-            if (Arrays.binarySearch(this.strain_array, strain) < 0)
-                throw new SNPDoesNotMeetCriteriaException("For " +
-                        snp_position.toString() + " low responding strain " +
-                        strain + " is not a valid strain!");
-            WAHBitSet calls = strainBaseCalls.get(strain);
+            if (Arrays.binarySearch(this.strain_array, strain) < 0) {
+                    String msg = "Low responding strain " +
+                            strain + " is not a valid strain!";
+                if (debug) System.out.println(msg);
+                throw new SNPDoesNotMeetCriteriaException(msg);
+            }
+            //WAHBitSet calls = strainBaseCalls.get(strain);
+            BitSet calls = strainBaseCalls.get(strain);
             if (first) {
                 low = calls.get(snp_index);
+                if (debug) System.out.println("Basecall for strain " + strain + " 'Low' value " + low + " at index " + snp_index);
                 first = false;
             } else {
                 //  Mismatch between two low responding strains. 
                 //  throw an exception
-                if (low != calls.get(snp_index)) 
-                    throw new SNPDoesNotMeetCriteriaException("For " +
-                        snp_position.toString() + " nonmatching low " +
-                        " responding strain base values.");
+                if (low != calls.get(snp_index)) {
+                    String msg = "Nonmatching low responding strain base values.";
+                    if (debug) System.out.println(msg);
+                    throw new SNPDoesNotMeetCriteriaException(msg);
+                }
             }
         }
         
         
         //  ... && high responding base != low responding base
-        if (high == low)
-            throw new SNPDoesNotMeetCriteriaException("For " +
-                        snp_position.toString() + " high and low" +
-                        "responding strain base calls are the same.");
+        if (high == low) {
+            String msg = 
+                    "High and low responding strain base calls are the same. ";
+            if (debug) System.out.println(msg);
+            if (debug) System.out.println(this.baseCall1_array[snp_index] + "/" + this.baseCall0_array[snp_index]);
+            throw new SNPDoesNotMeetCriteriaException(msg);
+        }
 
         // This is a keeper, start populating the SNP to be returned
         if (build.toUpperCase().equals("36"))
             snp.setBuild37Position(this.b37Positions_array[snp_index]);
         else
             snp.setBuild36Position(this.b36Positions_array[snp_index]);
-        snp.setSnpId(this.snpIds_array[snp_index]);
-        snp.setRsNumber(this.rsNums_array[snp_index]);
-        snp.setSource(this.sourceMap.get(this.sources_array[snp_index]));
+        // TODO:  Add all of these back in when I work out my memory problems
+        //snp.setSnpId(this.snpIds_array[snp_index]);
+        //snp.setRsNumber(this.rsNums_array[snp_index]);
+        //snp.setSource(this.sourceMap.get(this.sources_array[snp_index]));
 
 
         //  collect all other strains with HR base
