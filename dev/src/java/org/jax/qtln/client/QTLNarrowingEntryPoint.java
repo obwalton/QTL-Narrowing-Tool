@@ -443,14 +443,15 @@ public class QTLNarrowingEntryPoint implements EntryPoint {
                         addColumn(resultsTable, 0, "Build");
                         addColumn(resultsTable, 0, "Start");
                         addColumn(resultsTable, 0, "End");
-                        addColumn(resultsTable, 0, "SNP ID");
-                        addColumn(resultsTable, 0, "RS Num");
-                        addColumn(resultsTable, 0, "B36");
-                        addColumn(resultsTable, 0, "B37");
-                        addColumn(resultsTable, 0, "HR<br>Base");
-                        addColumn(resultsTable, 0, "LR<br>Base");
-                        addColumn(resultsTable, 0, "HR Strains");
-                        addColumn(resultsTable, 0, "LR Strains");
+                        addColumn(resultsTable, 0, "# SNPs");
+                        //addColumn(resultsTable, 0, "SNP ID");
+                        //addColumn(resultsTable, 0, "RS Num");
+                        //addColumn(resultsTable, 0, "B36");
+                        //addColumn(resultsTable, 0, "B37");
+                        //addColumn(resultsTable, 0, "HR<br>Base");
+                        //addColumn(resultsTable, 0, "LR<br>Base");
+                        //addColumn(resultsTable, 0, "HR Strains");
+                        //addColumn(resultsTable, 0, "LR Strains");
 
                         ScrollPanel scrollPanel = new ScrollPanel();
                         resultsTable.setWidth("100%");
@@ -471,7 +472,8 @@ public class QTLNarrowingEntryPoint implements EntryPoint {
                                 addColumn(resultsTable, row, region.getEnd());
                                 if (snps != null) {
                                     numSNPs = snps.size();
-                                    if (numSNPs == 1) {
+                                    addColumn(resultsTable, row, numSNPs);
+                                    /*if (numSNPs == 1) {
                                         SNP snp = snps.get(0);
                                         addColumn(resultsTable, row, snp.getSnpId());
                                         addColumn(resultsTable, row, snp.getRsNumber());
@@ -509,10 +511,12 @@ public class QTLNarrowingEntryPoint implements EntryPoint {
                                         }
                                     } else {
                                         row += 1;
-                                    }
+                                    }*/
                                 } else {
-                                    row += 1;
+                                    addColumn(resultsTable, row, 0);
+                                    //row += 1;
                                 }
+                                ++row;
                             }
                         }
                         applyDataRowStyles(resultsTable);
