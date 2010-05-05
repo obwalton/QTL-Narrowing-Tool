@@ -32,10 +32,14 @@ public class SNP implements IsSerializable {
     private String source;
 
     public SNP () {
+        this.hrStrains = new ArrayList<String>();
+        this.lrStrains = new ArrayList<String>();
+        this.dbSNPAnnotations = new ArrayList<String>();
 
     }
    
     public SNP(int position, String build) {
+        this();
         if (build.toUpperCase().equals("36"))
             this.build36Position = position;
         else
