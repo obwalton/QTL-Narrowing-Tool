@@ -5,17 +5,15 @@
 
 package org.jax.qtln.regions;
 
-import com.google.gwt.user.client.rpc.IsSerializable;
-import java.util.List;
+import java.io.Serializable;
+import java.util.TreeMap;
 
 
 /**
  *
  * @author dow
  */
-public interface Region extends IsSerializable {
-
-    public void setBuild(String build);
+public interface Region extends Serializable {
 
     public void setChromosome(String chromosome);
 
@@ -23,16 +21,14 @@ public interface Region extends IsSerializable {
 
     public void setStart(int start);
 
-    public String getBuild();
-
     public String getChromosome();
 
     public int getEnd();
  
     public int getStart();
 
-    public void setSnps(List<SNP> snps);
+    public void setSnps(TreeMap<Integer,SNP> snps);
     
-    public List<SNP> getSnps();
+    public TreeMap<Integer,SNP> getSnps();
 
 }

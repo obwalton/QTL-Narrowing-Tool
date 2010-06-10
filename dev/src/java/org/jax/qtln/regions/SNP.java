@@ -5,20 +5,20 @@
 
 package org.jax.qtln.regions;
 
-import com.google.gwt.user.client.rpc.IsSerializable;
+import java.io.Serializable;
 import java.util.ArrayList;
 
 /**
  *
  * @author dow
  */
-public class SNP implements IsSerializable {
+public class SNP implements Serializable {
     private static final long serialVersionUID =
             4741175800356479306L;
 
     private String snpID;
     private String rsNumber;
-    private int build36Position;
+    private int bpPosition;
     private int build37Position;
     private char hrBaseValue;
     private char lrBaseValue;
@@ -28,30 +28,46 @@ public class SNP implements IsSerializable {
     private ArrayList<String> lrStrains;
     private double pValue;
     private double qValue;
-    private ArrayList<String> dbSNPAnnotations;
+    private ArrayList<Integer> cgdSnpAnnotations;
     private String source;
+    private int cgdSnpId;
+    private int cgdAssociatedGeneId;
+
+    public int getCgdAssociatedGeneId() {
+        return cgdAssociatedGeneId;
+    }
+
+    public void setCgdAssociatedGeneId(int cgdAssociatedGeneId) {
+        this.cgdAssociatedGeneId = cgdAssociatedGeneId;
+    }
+
+    public int getCgdSnpId() {
+        return cgdSnpId;
+    }
+
+    public void setCgdSnpId(int cgdSnpId) {
+        this.cgdSnpId = cgdSnpId;
+    }
 
     public SNP () {
         this.hrStrains = new ArrayList<String>();
         this.lrStrains = new ArrayList<String>();
-        this.dbSNPAnnotations = new ArrayList<String>();
+        this.cgdSnpAnnotations = new ArrayList<Integer>();
 
     }
    
-    public SNP(int position, String build) {
+    public SNP(int position) {
         this();
-        if (build.toUpperCase().equals("36"))
-            this.build36Position = position;
-        else
-            this.build37Position = position;
+        this.build37Position = position;
+        this.bpPosition = position;
     }
 
-    public int getBuild36Position() {
-        return build36Position;
+    public int getBPPosition() {
+        return bpPosition;
     }
 
-    public void setBuild36Position(int build36Position) {
-        this.build36Position = build36Position;
+    public void setBPPosition(int position) {
+        this.bpPosition = position;
     }
 
     public int getBuild37Position() {
@@ -62,16 +78,16 @@ public class SNP implements IsSerializable {
         this.build37Position = build37Position;
     }
 
-    public ArrayList<String> getDbSNPAnnotations() {
-        return dbSNPAnnotations;
+    public ArrayList<Integer> getSnpAnnotations() {
+        return cgdSnpAnnotations;
     }
 
-    public void setDbSNPAnnotations(ArrayList<String> dbSNPAnnotations) {
-        this.dbSNPAnnotations = dbSNPAnnotations;
+    public void setSnpAnnotations(ArrayList<Integer> cgdSnpAnnotations) {
+        this.cgdSnpAnnotations = cgdSnpAnnotations;
     }
 
-    public void addDbSNPAnnotation(String annotation) {
-        this.dbSNPAnnotations.add(annotation);
+    public void addSnpAnnotation(Integer annotation) {
+        this.cgdSnpAnnotations.add(annotation);
     }
 
     public char getHighRespondingBaseValue() {

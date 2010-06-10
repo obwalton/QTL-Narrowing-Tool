@@ -5,14 +5,14 @@
 
 package org.jax.qtln.regions;
 
-import com.google.gwt.user.client.rpc.IsSerializable;
-import java.util.List;
+import java.io.Serializable;
+import java.util.TreeMap;
 
 /**
  *
  * @author dow
  */
-public class QTL implements Region, Comparable, IsSerializable {
+public class QTL implements Region, Comparable, Serializable {
     private static final long serialVersionUID =
             4741175800356479306L;
 
@@ -25,8 +25,7 @@ public class QTL implements Region, Comparable, IsSerializable {
     private String chromosome;
     private int qtlStart;
     private int qtlEnd;
-    private String build;
-    private List<SNP> snps;
+    private TreeMap<Integer,SNP> snps;
 
     public QTL() {
         super();
@@ -46,11 +45,6 @@ public class QTL implements Region, Comparable, IsSerializable {
         this.chromosome = chr;
         this.qtlStart = start;
         this.qtlEnd = end;
-        this.build = build;
-    }
-
-    public void setBuild(String build) {
-        this.build = build;
     }
 
     public void setChromosome(String chromosome) {
@@ -83,10 +77,6 @@ public class QTL implements Region, Comparable, IsSerializable {
 
     public void setSpecies(String species) {
         this.species = species;
-    }
-
-    public String getBuild() {
-        return build;
     }
 
     public String getChromosome() {
@@ -133,11 +123,11 @@ public class QTL implements Region, Comparable, IsSerializable {
         return ret_val;
     }
 
-    public List<SNP> getSnps() {
+    public TreeMap<Integer,SNP> getSnps() {
         return this.snps;
     }
 
-    public void setSnps(List<SNP> snps) {
+    public void setSnps(TreeMap<Integer,SNP> snps) {
         this.snps = snps;
     }
 }

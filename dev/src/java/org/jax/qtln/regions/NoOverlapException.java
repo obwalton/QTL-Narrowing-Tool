@@ -1,9 +1,9 @@
 package org.jax.qtln.regions;
 
-import com.google.gwt.user.client.rpc.IsSerializable;
+import java.io.Serializable;
 
 public class NoOverlapException extends Throwable
-        implements IsSerializable
+        implements Serializable
 {
     private static final long serialVersionUID =
             4741175800356479306L;

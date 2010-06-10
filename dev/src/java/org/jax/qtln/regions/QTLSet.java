@@ -5,7 +5,7 @@
 
 package org.jax.qtln.regions;
 
-import com.google.gwt.user.client.rpc.IsSerializable;
+import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashSet;
@@ -16,7 +16,7 @@ import java.util.Set;
  *
  * @author dow
  */
-public class QTLSet implements IsSerializable {
+public class QTLSet implements Serializable {
     private static final long serialVersionUID =
             4741175800356479306L;
 
@@ -44,15 +44,15 @@ public class QTLSet implements IsSerializable {
         //  are the right number of columns and that the appropriate columns
         //  are numeric.
         QTL newQtl = new QTL();
-        newQtl.setQtlID((String)qtl.get(0));
-        newQtl.setPhenotype((String)qtl.get(1));
-        newQtl.setSpecies((String)qtl.get(2));
-        newQtl.setHighResponder((String)qtl.get(3));
-        newQtl.setLowResponder((String)qtl.get(4));
-        newQtl.setChromosome((String)qtl.get(5));
+        newQtl.setQtlID(((String)qtl.get(0)).trim());
+        newQtl.setPhenotype(((String)qtl.get(1)).trim());
+        newQtl.setSpecies(((String)qtl.get(2)).trim());
+        newQtl.setHighResponder(((String)qtl.get(3)).trim());
+        newQtl.setLowResponder(((String)qtl.get(4)).trim());
+        newQtl.setChromosome(((String)qtl.get(5)).trim());
         newQtl.setStart((new Integer((String)qtl.get(6))).intValue());
         newQtl.setEnd((new Integer((String)qtl.get(7))).intValue());
-        newQtl.setBuild((String)qtl.get(8));
+        
         this.addQTL(newQtl);
     }
 

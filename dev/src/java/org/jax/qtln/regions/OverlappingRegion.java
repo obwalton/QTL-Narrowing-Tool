@@ -5,16 +5,16 @@
 
 package org.jax.qtln.regions;
 
-import com.google.gwt.user.client.rpc.IsSerializable;
-import org.jax.qtln.server.*;
+import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.TreeMap;
 
 /**
  *
  * @author dow
  */
-public class OverlappingRegion implements Region, IsSerializable {
+public class OverlappingRegion implements Region, Serializable {
     private static final long serialVersionUID =
             4741175800356479306L;
 
@@ -22,32 +22,26 @@ public class OverlappingRegion implements Region, IsSerializable {
     private String chromosome;
     private int start;
     private int end;
-    private String build;
     private ArrayList<String> highRespondingStrains;
     private ArrayList<String> lowRespondingStrains;
-    private ArrayList<SNP> snps;
+    private TreeMap<Integer, SNP> snps;
 
     public OverlappingRegion () {
 
     }
 
     public OverlappingRegion (QTL qtl) {
-        this(qtl.getChromosome(), qtl.getBuild());
+        this(qtl.getChromosome());
         this.addQtl(qtl);
         this.setStart(qtl.getStart());
         this.setEnd(qtl.getEnd());
     }
     
-    public OverlappingRegion (String chr, String build) {
+    public OverlappingRegion (String chr) {
         this.setChromosome(chr);
-        this.setBuild(build);
         this.qtls = new QTLSet(chr);
     }
     
-    public String getBuild() {
-        return build;
-    }
-
     public String getChromosome() {
         return chromosome;
     }
@@ -72,10 +66,6 @@ public class OverlappingRegion implements Region, IsSerializable {
 
     public int getStart() {
         return start;
-    }
-
-    public void setBuild(String build) {
-        this.build = build;
     }
 
     public void setChromosome(String chromosome) {
@@ -120,19 +110,19 @@ public class OverlappingRegion implements Region, IsSerializable {
         this.lowRespondingStrains.add(strain);
     }
 
-    public List<SNP> getSnps() {
+    public TreeMap<Integer, SNP> getSnps() {
         return snps;
     }
 
-    public void setSnps(List<SNP> snps) {
-        this.snps = (ArrayList)snps;
+    public void setSnps(TreeMap<Integer,SNP> snps) {
+        this.snps = snps;
     }
 
     public void addSnp(SNP snp) {
         if (this.snps == null) {
-            this.snps = new ArrayList<SNP>();
+            this.snps = new TreeMap<Integer,SNP>();
         }
-        this.snps.add(snp);
+        this.snps.put(snp.getBPPosition(), snp);
     }
 
     public Region getOverlappingRegion(OverlappingRegion other)
@@ -146,10 +136,8 @@ public class OverlappingRegion implements Region, IsSerializable {
         OverlappingRegion overlap = null;
         if (this.getStart() <= other.getStart() &&
                 other.getStart() <= this.getEnd()) {
-            overlap = new OverlappingRegion(this.getChromosome(),
-                    this.getBuild());
+            overlap = new OverlappingRegion(this.getChromosome());
             overlap.setStart(other.getStart());
-            overlap.setBuild(this.getBuild());
             overlap.setChromosome(this.getChromosome());
             QTLSet qtls = overlap.getQtls();
             try {
@@ -167,10 +155,8 @@ public class OverlappingRegion implements Region, IsSerializable {
         }
         else if (this.getStart() >= other.getStart() &&
                 this.getStart() <= other.getEnd()) {
-            overlap = new OverlappingRegion(this.getChromosome(),
-                    this.getBuild());
+            overlap = new OverlappingRegion(this.getChromosome());
             overlap.setStart(this.getStart());
-            overlap.setBuild(this.getBuild());
             overlap.setChromosome(this.getChromosome());
             QTLSet qtls = overlap.getQtls();
             try {
@@ -191,4 +177,19 @@ public class OverlappingRegion implements Region, IsSerializable {
         return overlap;
     }
 
+    public void addSnpDetails(List<List> details) {
+        for (List row:details) {
+            Integer position = (Integer)row.get(1);
+            SNP snp = this.snps.get(position);
+            if (snp == null) {
+                System.err.println("Snp position " + position + " was missing " +
+                        "from our region!");
+                continue;
+            }
+            snp.setCgdSnpId((Integer)row.get(0));
+            snp.setCgdAssociatedGeneId((Integer)row.get(3));
+            snp.addSnpAnnotation((Integer)row.get(2));
+
+        }
+    }
 }
