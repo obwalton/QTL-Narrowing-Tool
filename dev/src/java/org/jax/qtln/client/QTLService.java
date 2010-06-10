@@ -21,7 +21,7 @@ import org.jax.qtln.regions.Region;
 public interface QTLService extends RemoteService{
     public List<String[]> readQTLFile() throws Throwable;
 
-    public Map<String, List<Region>> narrowQTLs(List<List> qtls)
+    public Map<String, Map<String,Integer>> narrowQTLs(List<List> qtls)
             throws Throwable;
 
     public String getNarrowingStatus() throws Throwable;

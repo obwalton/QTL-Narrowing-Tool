@@ -20,7 +20,7 @@ import org.jax.qtln.regions.Region;
 public interface QTLServiceAsync {
     public void readQTLFile(AsyncCallback<List<String[]>> callback);
 
-    public void narrowQTLs(List<List> qtls, AsyncCallback<Map<String, List<Region>>> callback);
+    public void narrowQTLs(List<List> qtls, AsyncCallback<Map<String, Map<String,Integer>>> callback);
     public void getNarrowingStatus(AsyncCallback<String> callback);
 
 }

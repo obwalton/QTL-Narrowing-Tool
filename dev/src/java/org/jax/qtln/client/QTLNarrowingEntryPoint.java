@@ -418,7 +418,7 @@ public class QTLNarrowingEntryPoint implements EntryPoint {
 
 
                 System.out.println("Calling narrowQTLs");
-                qtlService.narrowQTLs((List<List>)qtls, new AsyncCallback<Map<String, List<Region>>>() {
+                qtlService.narrowQTLs((List<List>)qtls, new AsyncCallback<Map<String, Map<String,Integer>>>() {
 
                     public void onFailure(Throwable caught) {
                         progressBar.setProgress(100.0);
@@ -431,7 +431,7 @@ public class QTLNarrowingEntryPoint implements EntryPoint {
                         closeButton.setFocus(true);
                     }
 
-                    public void onSuccess(Map<String, List<Region>> results) {
+                    public void onSuccess(Map<String, Map<String, Integer>> results) {
                         System.out.println("IN SUCCESS CASE");
 
                         FlexTable resultsTable = new FlexTable();
@@ -440,9 +440,7 @@ public class QTLNarrowingEntryPoint implements EntryPoint {
                         //qtlTable.getRowFormatter().addStyleName(0,"FlexTable-Header");
 
                         addColumn(resultsTable, 0, "Chromosome");
-                        addColumn(resultsTable, 0, "Build");
-                        addColumn(resultsTable, 0, "Start");
-                        addColumn(resultsTable, 0, "End");
+                        addColumn(resultsTable, 0, "Region");
                         addColumn(resultsTable, 0, "# SNPs");
                         //addColumn(resultsTable, 0, "SNP ID");
                         //addColumn(resultsTable, 0, "RS Num");
@@ -461,19 +459,20 @@ public class QTLNarrowingEntryPoint implements EntryPoint {
                         Set<String> keys = results.keySet();
                         int row = 1;
                         for (String key : keys) {
-                            List<Region> regions = results.get(key);
+                            Map<String, Integer> regions = results.get(key);
+
                             int numSNPs = 0;
-                            for (Region region : regions) {
-                                List<SNP> snps = region.getSnps();
+                            Set<String> rangeKeys = regions.keySet();
+                            for (String range : rangeKeys) {
+                                Integer snps = regions.get(range);
                                 resultsTable.insertRow(row);
                                 addColumn(resultsTable, row, key);
-                                addColumn(resultsTable, row, region.getBuild());
-                                addColumn(resultsTable, row, region.getStart());
-                                addColumn(resultsTable, row, region.getEnd());
-                                if (snps != null) {
+                                addColumn(resultsTable, row, range);
+                                addColumn(resultsTable, row, snps);
+                                /*if (snps != null) {
                                     numSNPs = snps.size();
                                     addColumn(resultsTable, row, numSNPs);
-                                    /*if (numSNPs == 1) {
+                                    if (numSNPs == 1) {
                                         SNP snp = snps.get(0);
                                         addColumn(resultsTable, row, snp.getSnpId());
                                         addColumn(resultsTable, row, snp.getRsNumber());
@@ -511,11 +510,11 @@ public class QTLNarrowingEntryPoint implements EntryPoint {
                                         }
                                     } else {
                                         row += 1;
-                                    }*/
+                                    }
                                 } else {
                                     addColumn(resultsTable, row, 0);
                                     //row += 1;
-                                }
+                                }*/
                                 ++row;
                             }
                         }
@@ -602,7 +601,6 @@ public class QTLNarrowingEntryPoint implements EntryPoint {
         addColumn(this.qtlTable, 0, "Chr");
         addColumn(this.qtlTable, 0, "QTL Start");
         addColumn(this.qtlTable, 0, "QTL End");
-        addColumn(this.qtlTable, 0, "Bld");
   }
 
   private void clear () {
