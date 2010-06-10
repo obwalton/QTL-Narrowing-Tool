@@ -22,7 +22,7 @@ public class QTLFileReader {
      * The default name of the properties file.  Assumed to be sitting in the
      * relative path.
      */
-    public static final int EXPECTED_NUM_COLS = 9;
+    public static final int EXPECTED_NUM_COLS = 8;
 
     public QTLFileReader() {
 
