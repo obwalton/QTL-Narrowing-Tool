@@ -62,13 +62,11 @@ public class SmallestCommonRegion {
             ArrayList<Region> regions = new ArrayList<Region>();
             int maxStart = 0;
             int minEnd   = 0;
-            String build = "";
             ArrayList<QTL> contributingQTLs = new ArrayList<QTL>();
 
             for (QTL qtl : tmpQtls.asList()) {
                 //  This is the first QTL in the region, just add it
                 if (minEnd == 0) {
-                    build = qtl.getBuild();
                     maxStart = qtl.getStart();
                     minEnd = qtl.getEnd();
                     contributingQTLs.add(qtl);
@@ -80,7 +78,7 @@ public class SmallestCommonRegion {
                     contributingQTLs.add(qtl);
                 }
                 else if (qtl.getStart() > minEnd) {
-                    OverlappingRegion region = new OverlappingRegion(chr, build);
+                    OverlappingRegion region = new OverlappingRegion(chr);
                     region.setStart(maxStart);
                     region.setEnd(minEnd);
                     // set minEnd to this QTL's end, temporarily
@@ -107,7 +105,7 @@ public class SmallestCommonRegion {
                 }
             }
             // Process last region
-            OverlappingRegion region = new OverlappingRegion(chr, build);
+            OverlappingRegion region = new OverlappingRegion(chr);
             region.setStart(maxStart);
             region.setEnd(minEnd);
             for (Iterator iter = contributingQTLs.iterator(); iter.hasNext();) {
