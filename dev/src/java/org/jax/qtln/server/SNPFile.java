@@ -5,21 +5,23 @@
 
 package org.jax.qtln.server;
 
-import org.jax.qtln.regions.SNPDoesNotMeetCriteriaException;
 import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileReader;
 import java.io.IOException;
 import java.util.ArrayList;
-import java.util.BitSet;
 import java.util.Arrays;
+import java.util.BitSet;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
+import java.util.TreeMap;
 import java.util.regex.Pattern;
 import java.util.regex.Matcher;
-//import org.devbrat.util.WAHBitSet;
 import org.jax.qtln.regions.SNP;
+import org.jax.qtln.regions.SNPDoesNotMeetCriteriaException;
+//import org.devbrat.util.WAHBitSet;
 
 
 /** Class that stores a CGD Imputed SNP data for a single chromosome.
@@ -38,7 +40,7 @@ public class SNPFile {
     /** The column where the RS Number can be found */
     public static final int RS_NUM_COL = 1;
     /** The column where the Build 36 Position can be found */
-    public static final int BUILD_36_COL = 4;
+    //public static final int BUILD_36_COL = 4;
     /** The column where the Build 37 Position can be found */
     public static final int BUILD_37_COL = 3;
     /** The column where the SNP Source can be found */
@@ -56,7 +58,7 @@ public class SNPFile {
     private String[] snpIds_array;
     private String[] rsNums_array;
     private int[] b37Positions_array;
-    private int[] b36Positions_array;
+    //private int[] b36Positions_array;
     private Map<Short, String> sourceMap;
     private Map<String, Short> revSourceMap;
     private short[] sources_array;
@@ -74,9 +76,7 @@ public class SNPFile {
     public SNPFile(File snpDir, File snpFile, Pattern nameFormat) {
         String fileName = snpFile.getName();
         Matcher matcher = nameFormat.matcher(fileName);
-        System.out.println("Check for Match for file " + fileName + " and pattern: " + nameFormat.pattern());
         if (matcher.matches()) {
-            System.out.println("Matches!  Get Chromosome");
             this.chromosome = matcher.group(1);
         }
 
@@ -155,11 +155,19 @@ public class SNPFile {
     public void load()
         throws IOException
     {
+        //  This object is used as a staging area.  We read in the entire file,
+        //  Drop all rows that have no Build 37 position, sort the keys on
+        //  Build 37 position, and then iterate through the ordered rows,
+        //  and build our SNPFile structure.
+        TreeMap<Integer, String> staging = new TreeMap<Integer, String>();
+
+        //  These are the objects that store our data during the load.
+        //  Most will be converted to arrays of primitives for long term
+        //  storage.
         ArrayList<String> strains = new ArrayList<String>();
         ArrayList<String> snpIds = new ArrayList<String>();
         ArrayList<String> rsNums = new ArrayList<String>();
         ArrayList<Integer> b37Positions = new ArrayList<Integer>();
-        ArrayList<Integer> b36Positions = new ArrayList<Integer>();
         ArrayList<Short> sources = new ArrayList<Short>();
         ArrayList<Character> baseCall1 = new ArrayList<Character>();
         ArrayList<Character> baseCall0 = new ArrayList<Character>();
@@ -168,14 +176,13 @@ public class SNPFile {
         FileReader fileReader = new FileReader(this.physicalFile);
         BufferedReader bufferedReader = new BufferedReader(fileReader);
 
-        String line = "";
-        short next_map_value = (short) 0;
         // loop through lines of the file.  Separating each line
         // into a row of the dataset object.
+        String line = "";
         boolean firstLine = true;
-        int row = 0;
         while ((line = bufferedReader.readLine()) != null) {
             String[] cols = line.split(",");
+
             // For the first line we need to gather all the strain names
             if (firstLine) {
                 firstLine = false;
@@ -186,87 +193,108 @@ public class SNPFile {
                         SNPFile.FIRST_STRAIN_COL; i < cols.length; i++) {
                     //this.strainBaseCalls.put(cols[i], new WAHBitSet());
                     this.strainBaseCalls.put(cols[i], new BitSet());
-                    strains.add(cols[i]);
+                    strains.add(cols[i].trim());
                 }
                 continue;
-            } //  for all other lines we process the data...
+            } 
+            //  for all other lines we load the data into our staging area...
             else {
-                //snpIds.add(cols[SNPFile.SNP_ID_COL]);
-                //rsNums.add(cols[SNPFile.RS_NUM_COL]);
-                b36Positions.add(new Integer(cols[SNPFile.BUILD_36_COL]));
+                //  First we must determine if there is a B37 Position
                 String b37pos = cols[SNPFile.BUILD_37_COL];
                 Integer b37posI;
                 if (b37pos.equals("NA"))
-                    b37posI = null;
+                    //  We are skipping all rows without a B37 position
+                    continue;
                 else
                     b37posI = new Integer(b37pos);
-                b37Positions.add(b37posI);
-                String source = cols[SNPFile.SOURCE_COL];
-                // We store the actual source values in a lookup, since
-                // there are a limited number, that way we save more space
-                if (!this.sourceMap.containsValue(source)) {
-                    Short nmv = new Short(next_map_value);
-                    this.sourceMap.put(nmv, source);
-                    this.revSourceMap.put(source, nmv);
-                    ++next_map_value;
-                }
-                //sources.add(this.revSourceMap.get(source));
 
-                // Now we are going to create the BitSets that represent
-                // the base calls
-
-                // We will set the "One" value or first base call with the
-                // first strain every time.  We need to keep track of
-                // whether or not the "Zero" value is set, so we can assign
-                // the second base call.  We assume for a given SNP there
-                // are only 2 possible base call values.
-                boolean isZeroSet = false;
-                //  TODO: think how logic can change to carry through upper
-                //  and lower case base calls to show did between normal
-                //  and imputed values.
-                char cur_primary_basecall =
-                        cols[SNPFile.FIRST_STRAIN_COL].toUpperCase().trim().
-                        charAt(0);
-                baseCall1.add(cur_primary_basecall);
-                // This sets the bit for the primary call to true.
-
-                this.strainBaseCalls.get(strains.get(0)).set(row);
-                // Cycle through the rest of the strain columns
-                for (int i = 1; i < strains.size(); i++) {
-                    char cur_basecall = cols[SNPFile.FIRST_STRAIN_COL + i].toUpperCase().trim().charAt(0);
-
-                    // if this base is the same as the primary base, set
-                    // the associated bit to true
-                    if (cur_basecall == cur_primary_basecall) {
-                        this.strainBaseCalls.get(strains.get(i)).set(row);
-                    }
-                    //  otherwise, if the zero value has not yet been set
-                    //  set it now. 
-                    else if (!isZeroSet) {
-                        baseCall0.add(cur_basecall);
-                        isZeroSet = true;
-                        this.strainBaseCalls.get(strains.get(i)).set(row, false);
-                    }
-                    else {
-                        this.strainBaseCalls.get(strains.get(i)).set(row, false);
-                    }
-
-                }
-
-                //  if the two master lists of basecalls are not of
-                //  equal length, that means there were no base calls
-                //  for this SNP that were a miss match.  Add a null
-                //  row to baseCall0
-                if (baseCall0.size() != baseCall1.size()) {
-                    baseCall0.add(null);
-                }
-
+                staging.put(b37posI, line);
             }
-            ++row;
         }
+        // Close the file readers, we're all done with them.
         bufferedReader.close();
         fileReader.close();
 
+
+        // Now get the keys in ascending order (the NavigableKeySet from
+        // a TreeMap is ordered)
+        Set<Map.Entry<Integer,String>> positions = staging.entrySet();
+        int row = 0;
+        short next_map_value = (short) 0;
+        for(Map.Entry<Integer, String> position: positions) {
+            String[] cols = position.getValue().split(",");
+
+            //snpIds.add(cols[SNPFile.SNP_ID_COL]);
+            //rsNums.add(cols[SNPFile.RS_NUM_COL]);
+            //b36Positions.add(new Integer(cols[SNPFile.BUILD_36_COL]));
+
+            b37Positions.add(position.getKey());
+            String source = cols[SNPFile.SOURCE_COL];
+            // We store the actual source values in a lookup, since
+            // there are a limited number, that way we save more space
+            if (!this.sourceMap.containsValue(source)) {
+                Short nmv = new Short(next_map_value);
+                this.sourceMap.put(nmv, source);
+                this.revSourceMap.put(source, nmv);
+                ++next_map_value;
+            }
+            //sources.add(this.revSourceMap.get(source));
+
+            // Now we are going to create the BitSets that represent
+            // the base calls
+
+            // We will set the "One" value or first base call with the
+            // first strain every time.  We need to keep track of
+            // whether or not the "Zero" value is set, so we can assign
+            // the second base call.  We assume for a given SNP there
+            // are only 2 possible base call values.
+            boolean isZeroSet = false;
+            //  TODO: think how logic can change to carry through upper
+            //  and lower case base calls to show did between normal
+            //  and imputed values.
+            char cur_primary_basecall =
+                    cols[SNPFile.FIRST_STRAIN_COL].toUpperCase().trim().
+                    charAt(0);
+            baseCall1.add(cur_primary_basecall);
+            // This sets the bit for the primary call to true.
+
+            this.strainBaseCalls.get(strains.get(0)).set(row);
+            // Cycle through the rest of the strain columns
+            for (int i = 1; i < strains.size(); i++) {
+                char cur_basecall = cols[SNPFile.FIRST_STRAIN_COL + i].toUpperCase().trim().charAt(0);
+
+                // if this base is the same as the primary base, set
+                // the associated bit to true
+                if (cur_basecall == cur_primary_basecall) {
+                    this.strainBaseCalls.get(strains.get(i)).set(row);
+                } //  otherwise, if the zero value has not yet been set
+                //  set it now.
+                else if (!isZeroSet) {
+                    baseCall0.add(cur_basecall);
+                    isZeroSet = true;
+                    this.strainBaseCalls.get(strains.get(i)).set(row, false);
+                } else {
+                    this.strainBaseCalls.get(strains.get(i)).set(row, false);
+                }
+
+            }
+
+            //  if the two master lists of basecalls are not of
+            //  equal length, that means there were no base calls
+            //  for this SNP that were a miss match.  Add a null
+            //  row to baseCall0
+            if (baseCall0.size() != baseCall1.size()) {
+                baseCall0.add(null);
+            }
+
+            ++row;
+        }
+        //  All done with our staging area
+        staging = null;
+        positions = null;
+
+        // Now copy all temporary Collection based data structures into less
+        // memory consuming arrays
         this.strain_array = strains.toArray(new String[0]);
         //this.snpIds_array = snpIds.toArray(new String[0]);
         //this.rsNums_array = rsNums.toArray(new String[0]);
@@ -277,9 +305,9 @@ public class SNPFile {
             else
                 this.b37Positions_array[i] = b37Positions.get(i);
         }
-        this.b36Positions_array = new int[b36Positions.size()];
-        for (int i = 0; i < b36Positions.size(); i++)
-            this.b36Positions_array[i] = b36Positions.get(i);
+        //this.b36Positions_array = new int[b36Positions.size()];
+        //for (int i = 0; i < b36Positions.size(); i++)
+        //    this.b36Positions_array[i] = b36Positions.get(i);
         //this.sources_array = new short[sources.size()];
         //for (int i = 0; i < sources.size(); i++)
         //    this.sources_array[i] = sources.get(i);
@@ -298,26 +326,24 @@ public class SNPFile {
 
     /** Get all the SNP position values in the given range for the given build
      *
-     * @param build The build number for the position values, currently support
-     *      b36 and b37
      * @param start  The starting position of the range.
      * @param end  The ending position of the range.
      * @return  An array containing all of the positions found in the range
      *      as "java.util.Integer" values.
      */
-    public int[] findSnpsPositionsInRange(String build, int start, int end) {
+    public int[] findSnpPositionsInRange(int start, int end) {
         //  TODO: Consider throwing an exception if the "load()" method has not
         //  been called.
 
         //  The list of all SNP positions for this chromosome.  Will be
         //  populated with either b36 or b37, depending on user parameter
         int[] positionLookup = null;
-        if (build.toUpperCase().equals("36"))
-            positionLookup = this.b36Positions_array;
+        //if (build.toUpperCase().equals("36"))
+        //    positionLookup = this.b36Positions_array;
         //  Because we only support 36 and 37, we'll assume anything not
         //  b36 is b37.
-        else
-            positionLookup = this.b37Positions_array;
+        //else
+        positionLookup = this.b37Positions_array;
 
         System.out.println("for positions " + start + " to " + end);
         //  This will be the first position in the array of positions in the
@@ -326,20 +352,14 @@ public class SNPFile {
         //  This will be the last position in the array of positions in the
         //  Lookup that maps to our end position.
         int end_index = -1;
-        //  Convert start and end to "java.util.Integer" values
-        //Integer startI = new Integer(start);
-        //Integer endI = new Integer(end);
-        // first lets see if we can find the start and end positions exactly
-        // and avoid looping below.
-        //if (positionLookup.contains(startI)) {
-        //    start_index = positionLookup.indexOf(startI);
-        //}
-        //if (positionLookup.contains(endI)) {
-        //    end_index = positionLookup.indexOf(endI);
-        //}
+
+        //  If start and end position exist in the position lookup, this
+        //  saves us time from looping through
         start_index = Arrays.binarySearch(positionLookup, start);
+        if (start_index < -1) start_index = -1;
 
         end_index = Arrays.binarySearch(positionLookup, end);
+        if (end_index < -1) end_index = -1;
 
         //  If we haven't found both start and end index yet, then we'll
         //  loop through the positionLookup to find them.
@@ -354,15 +374,21 @@ public class SNPFile {
 
                 if (end_index < 0) {
                     if (position >= end) {
-                        if (position == end)
+                        if (position == end) {
                             end_index = Arrays.binarySearch(positionLookup, position);
-                        else
+                        }
+                        else {
                             end_index = Arrays.binarySearch(positionLookup, last_position);
+                        }
 
                     }
                 }
                 last_position = position;
                 if (start_index >= 0 && end_index >= 0) break;
+            }
+            if (end_index <= -1) {
+                end_index = Arrays.binarySearch(positionLookup, last_position);
+                System.out.println("No positions greater than end " + end + " Last position before end was: " + last_position + " index of " + end_index);
             }
         }
         // Now take the start and end indicies and get a subList of positions
@@ -377,6 +403,7 @@ public class SNPFile {
             System.arraycopy(positionLookup, start_index, positions, 0,
                     end_index - start_index + 1);
         }
+
         //       positionLookup.subList(start_index, end_index);
         //Integer[] l = new Integer[0];
         //l = positions.toArray(l);
@@ -396,17 +423,16 @@ public class SNPFile {
      *   <li>base call for high and low responding strains are different.</li>
      *   </ul>
      * @param snp_position  The position of the SNP on the chromosome
-     * @param build The build (B36 or B37) of the position.
      * @param highRespondingStrains  List of high responding strains.
      * @param lowRespondingStrains  List of low responding strains.
      * @return  SNP object is returned containing basecall value, position in
-     *   both build 36 and 37, all high responding strains from the complete
+     *   build 37, all high responding strains from the complete
      *   set of strains, all low responding strains, rs number and source.
      * @throws SNPDoesNotMeetCriteriaException  If for any reason the SNP
      *   fails to pass the criteria this exception is thrown with an
      *   explaination message.
      */
-    public SNP analyzeSNP(Integer snp_position, String build,
+    public SNP analyzeSNP(Integer snp_position, 
                         List<String> highRespondingStrains,
                         List<String> lowRespondingStrains)
         throws SNPDoesNotMeetCriteriaException
@@ -419,18 +445,18 @@ public class SNPFile {
         //  The list of all SNP positions for this chromosome.  Will be
         //  populated with either b36 or b37, depending on user parameter
         int[] positionLookup = null;
-        if (build.toUpperCase().equals("36"))
-            positionLookup = this.b36Positions_array;
+        //if (build.toUpperCase().equals("36"))
+        //    positionLookup = this.b36Positions_array;
         //  Because we only support 36 and 37, we'll assume anything not
         //  b36 is b37.
-        else
-            positionLookup = this.b37Positions_array;
+        //else
+        positionLookup = this.b37Positions_array;
 
         int snp_index = Arrays.binarySearch(positionLookup, snp_position);
         if (snp_index < 0) {
-            String msg = snp_position.toString() +
-                    " is not in the list of SNPs in this region.";
-            System.out.println(msg);
+            String msg = "Not in the list of SNPs in this region.";
+            if (snp_position == -1)
+                msg += " position is -1...";
             throw new SNPDoesNotMeetCriteriaException(msg);
         }
         //int snp_index = positionLookup.indexOf(snp_position);
@@ -444,7 +470,7 @@ public class SNPFile {
             throw new SNPDoesNotMeetCriteriaException(msg);
         }
 
-        SNP snp = new SNP(snp_position, build);
+        SNP snp = new SNP(snp_position);
         // Keep SNP if All high responding strains have same base value ...
         boolean high = false;
         boolean first = true;
@@ -512,10 +538,10 @@ public class SNPFile {
         }
 
         // This is a keeper, start populating the SNP to be returned
-        if (build.toUpperCase().equals("36"))
-            snp.setBuild37Position(this.b37Positions_array[snp_index]);
-        else
-            snp.setBuild36Position(this.b36Positions_array[snp_index]);
+        //if (build.toUpperCase().equals("36"))
+        //    snp.setBuild37Position(this.b37Positions_array[snp_index]);
+        //else
+        //    snp.setBuild36Position(this.b36Positions_array[snp_index]);
         // TODO:  Add all of these back in when I work out my memory problems
         //snp.setSnpId(this.snpIds_array[snp_index]);
         //snp.setRsNumber(this.rsNums_array[snp_index]);

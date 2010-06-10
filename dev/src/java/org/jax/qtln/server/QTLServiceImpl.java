@@ -6,18 +6,21 @@ import org.jax.qtln.regions.InvalidChromosomeException;
 import org.jax.qtln.regions.QTLSet;
 import org.jax.qtln.regions.Region;
 import com.google.gwt.user.server.rpc.RemoteServiceServlet;
-import java.io.File;
-import java.io.IOException;
+import java.sql.SQLException;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.regex.Pattern;
+import java.util.Set;
+import javax.servlet.ServletContext;
 import javax.servlet.ServletException;
-import javax.servlet.UnavailableException;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpSession;
 import org.jax.qtln.client.QTLService;
 import org.jax.qtln.client.SMSException;
+import org.jax.qtln.db.CGDSnpDB;
+import org.jax.qtln.regions.OverlappingRegion;
+import org.jax.qtln.regions.SNP;
 
 /**
  * The server side implementation of the RPC service.
@@ -28,6 +31,17 @@ public class QTLServiceImpl extends RemoteServiceServlet implements
 
     private String narrowingStatus = "Waiting";
 
+    //  This is temporary until I determine if we are better off with
+    //  in-memory snps or database storage for snps (memory vs. performance
+    //  trade-off
+    public static final String SNP_STORAGE = "DB";
+
+    //  These are all for the database stored version of the CGD SNPS
+    private String driver = "com.mysql.jdbc.Driver";
+
+    //  This is a shared database connection for DB Storage of SNPS
+    //private static Connection conn;
+
     //  The next two variables should be passed in as parameters to the
     //  servlet config.
     public static final String snpDirName = "/Users/dow/Documents/workspace/QTLNarrowing/data/CGD/imputed";
@@ -37,49 +51,22 @@ public class QTLServiceImpl extends RemoteServiceServlet implements
             "chr(\\d\\d?|[XYxy])_.*\\.txt";
 
     private static HashMap<String, SNPFile> cgdSNPLookup;
+    private static Map<Integer,String> snpLocFuncs;
 
     public void init() throws ServletException {
-        System.out.println("######  DOING QTLNARROWING CUSTOM INITIALIZATION ######");
-        cgdSNPLookup = new HashMap<String, SNPFile>();
-      File snpDir = new File(snpDirName);
-      if (! snpDir.exists())
-          throw new UnavailableException("Cannot fine CGD SNP files.  " +
-                  "Directory does not exist: " + snpDirName);
-      if (! snpDir.isDirectory())
-          throw new UnavailableException("Not a directory: " + snpDirName);
-
-      String[] snpFileNames = snpDir.list();
-      if (snpFileNames.length == 0)
-          throw new UnavailableException("Directory empty: " + snpDirName);
-      Pattern snpNamePattern = Pattern.compile(QTLServiceImpl.imputedSnpsBaseName);
-      //  we expect files for Chr 1-19 and X
-      int chr_count = 0;
-      System.out.println("INIT: Cycle through files in dir, load snp files...");
-      for (String snpFileName : snpFileNames) {
-          File snpFile = new File(snpFileName);
-          System.out.println("INIT: Creating SNPFile Object");
-          SNPFile result = new SNPFile(snpDir, snpFile, snpNamePattern);
-          if (result.valid()) {
-              System.out.println("INIT: Loading SNP file for chromosome " + result.getChromosome());
-              try {
-                result.load();
-              } catch (IOException ioe) {
-                  System.out.println("INIT:  FAILURE DUE TO IO ISSUE");
-                  ioe.printStackTrace();
-                  throw new UnavailableException(
-                          "Problem reading CGD Imputed SNP File: " +
-                          ioe.getMessage());
-              }
-              chr_count += 1;
-              System.out.println("INIT: Chromosome loaded " + chr_count);
-              cgdSNPLookup.put(result.getChromosome(), result);
-              System.out.println(result.getDetails());
-          }
-      }
-      //if (chr_count < 1)
-      //    throw new UnavailableException("Expected 20 Chromosome files in CGD " +
-      //            "data directory (" + snpDirName + "), only found " + chr_count);
-      System.out.println("Custom Initialization Complete!");
+        ServletContext context = this.getServletContext();
+        String status = (String)context.getAttribute("SNP_INIT_STATUS");
+        System.out.println("INITIALIZATION = " + status);
+        cgdSNPLookup = (HashMap<String, SNPFile>)context.getAttribute("snpLookup");
+        //  Get our location function lookup
+        CGDSnpDB snpDb = new CGDSnpDB();
+        try {
+            if (this.snpLocFuncs == null) {
+                this.snpLocFuncs = snpDb.getSNPLocFuncList();
+            }
+        } catch (SQLException sqle) {
+            throw new ServletException(sqle.getMessage());
+        }
     }
 
 
@@ -103,10 +90,10 @@ public class QTLServiceImpl extends RemoteServiceServlet implements
     }
 
 
-    public Map<String, List<Region>> narrowQTLs(List<List> qtls)
+    public Map<String, Map<String,Integer>> narrowQTLs(List<List> qtls)
             throws SMSException
     {
-        System.out.print("In narrowQTLs");
+        System.out.println("In narrowQTLs");
         //  The actual logic for running the analysis is in a separate
         //  class from the actual servlet.  I did this because the servlet
         //  class is shared by all users, and I wanted to use class attributes
@@ -125,22 +112,67 @@ public class QTLServiceImpl extends RemoteServiceServlet implements
 
         //  Now get the smallest common regions in our qtlSet
         this.narrowingStatus = "Getting smallest common regions in mouse...";
-        System.out.print("...getting Smallest Common Regions");
+        System.out.println("...getting Smallest Common Regions");
         SmallestCommonRegion scr = new SmallestCommonRegion(qtlSet);
         Map<String, List<Region>> regions = scr.getRegions();
 
         //  Now do haplotype mapping
         this.narrowingStatus = "Doing haplotype analysis of Mouse regions...";
-        System.out.print("...doing Haplotype Analysis");
+        System.out.println("...doing Haplotype Analysis");
         HaplotypeAnalyzer haplotypeAnalyzer = new HaplotypeAnalyzer(this.cgdSNPLookup);
-        haplotypeAnalyzer.doAnalysis(regions);
+        try {
+            haplotypeAnalyzer.doAnalysis(regions);
+            System.out.println("after doAnalysis");
+        } catch (Exception e) {
+            System.out.println("Caught an exception ");
+            e.printStackTrace();
+            throw new SMSException(e.getMessage());
+        }
+        this.narrowingStatus = "Getting SNP Annotations...";
 
+        // Now get annotations to the SNPs
+        // Need a CGDSnpDB object...
+        CGDSnpDB snpDb = new CGDSnpDB();
+
+        //Map<String, List<Region>> generic_results = (Map<String, List<Region>>)regions;
+        Map<String, List<Region>> generic_results = regions;
+        Map<String, Map<String, Integer>> ret_results = new HashMap<String, Map<String, Integer>>();
+        System.out.println("results have " + generic_results.keySet().size() + " chromosomes");
+        for (String chr:generic_results.keySet()) {
+            List<Region> myRegions = generic_results.get(chr);
+            Map regionMap = new HashMap<String, Integer>();
+            System.out.println(chr + " has " + myRegions.size() + " regions.");
+            for (Region region: myRegions) {
+                String region_key = "" + region.getStart() + "-" + region.getEnd();
+                Integer snp_count = new Integer(0);
+                if (region.getSnps() != null) {
+                    snp_count = new Integer(region.getSnps().size());
+                    List<Integer> snps = new ArrayList<Integer>();
+                    Set<Map.Entry<Integer,SNP>> snp_positions = region.getSnps().entrySet();
+                    for (Map.Entry<Integer,SNP> snp:snp_positions) {
+                        snps.add(snp.getValue().getBPPosition());
+                    }
+                    try {
+                        List<List> details =
+                            snpDb.getSNPDetails(region.getChromosome(), snps);
+                        OverlappingRegion oRegion = (OverlappingRegion)region;
+                        oRegion.addSnpDetails(details);
+                    } catch (SQLException sqle) {
+                        throw new SMSException(sqle.getMessage());
+                    }
+                }
+                regionMap.put(region_key, snp_count);
+            }
+            ret_results.put(chr, regionMap);
+        }
+        this.narrowingStatus = "Caching results...";
+        HttpSession session = this.getSession();
+        session.setAttribute("REGIONS", generic_results);
 
         this.narrowingStatus = "Done!";
-        System.out.print("Done in narrowQTLs, returning results!");
+        System.out.println("Done in narrowQTLs, returning results! ");
 
-        Map<String, List<Region>> generic_results = (Map<String, List<Region>>)regions;
-        return generic_results;
+        return ret_results;
 
     }
 
