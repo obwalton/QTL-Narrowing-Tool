@@ -6,6 +6,7 @@
 package org.jax.qtln.regions;
 
 import java.io.Serializable;
+import java.util.Map;
 import java.util.TreeMap;
 
 /**
@@ -129,5 +130,9 @@ public class QTL implements Region, Comparable, Serializable {
 
     public void setSnps(TreeMap<Integer,SNP> snps) {
         this.snps = snps;
+    }
+
+    public Map<Integer,Gene> getGenes() {
+        return null;
     }
 }
