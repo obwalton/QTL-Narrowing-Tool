@@ -16,10 +16,13 @@ import javax.servlet.ServletContext;
 import javax.servlet.ServletException;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpSession;
+import org.apache.commons.math.MathRuntimeException;
 import org.jax.qtln.client.QTLService;
 import org.jax.qtln.client.SMSException;
 import org.jax.qtln.db.CGDSnpDB;
+import org.jax.qtln.regions.Gene;
 import org.jax.qtln.regions.OverlappingRegion;
+import org.jax.qtln.regions.ReturnRegion;
 import org.jax.qtln.regions.SNP;
 
 /**
@@ -39,60 +42,121 @@ public class QTLServiceImpl extends RemoteServiceServlet implements
     //  These are all for the database stored version of the CGD SNPS
     private String driver = "com.mysql.jdbc.Driver";
 
-    //  This is a shared database connection for DB Storage of SNPS
-    //private static Connection conn;
+    //  Various Lookups that are initialized at the time the webapp is
+    //  deployed (in QTLServletContextListener).  The variables are actually
+    //  assigned in the servlet init() below.  They are stored in the servlet
+    //  context.
+    // Chromosome -> SNP detail
+    private static Map<String, SNPFile> cgdSNPLookup;
+    // MGIAccession ID -> Probe ID
+    private static Map<String, List<String>> probeSetLookup;
+    // MGIAccession ID -> {"symbol"->symbol,"name"->name}
+    private static Map<String, Map<String,String>> mgiLookup;
+    // "samples", "probes", "intensities"
+    // samples -> List of sample names
+    // probes  -> List of probe ids
+    // intensities -> matrix rows/columns = probes/samples
+    private static Map lungIntensityLookup;
+    // Strain -> [Sample names...]
+    private static Map<String, List<String>> lungStrainLookup;
 
-    //  The next two variables should be passed in as parameters to the
-    //  servlet config.
-    public static final String snpDirName = "/Users/dow/Documents/workspace/QTLNarrowing/data/CGD/imputed";
-    //  TODO: come up with a clever way of dealing with file name with changing
-    //  version and build
-    public static final String imputedSnpsBaseName =
-            "chr(\\d\\d?|[XYxy])_.*\\.txt";
-
-    private static HashMap<String, SNPFile> cgdSNPLookup;
+    //  This lookup is initialized in the Servlet "init()" method below.
+    // cgdsnpdb _loc_func_key -> location/function description
     private static Map<Integer,String> snpLocFuncs;
 
+    /** init
+     * Runs inititalizations that must occur before methods of servlet are run.
+     * This method doesn't appear to run until the first method of the servlet
+     * is called.  Initializations done here are kept to items that are not
+     * time consuming.  Should only run once during life of servlet.  Variables
+     * initialized here are shared by all users of the servlet.
+     * <p>
+     * Time consuming initializations are done in the
+     * @see org.jax.qtln.server.QTLServletContextListener
+     * class.
+     * @throws ServletException
+     */
     public void init() throws ServletException {
         ServletContext context = this.getServletContext();
         String status = (String)context.getAttribute("SNP_INIT_STATUS");
-        System.out.println("INITIALIZATION = " + status);
-        cgdSNPLookup = (HashMap<String, SNPFile>)context.getAttribute("snpLookup");
+        System.out.println("SNP INITIALIZATION = " + status);
+        QTLServiceImpl.cgdSNPLookup =
+                (Map<String, SNPFile>)context.getAttribute("snpLookup");
+        System.out.println("PROBE INITIALIZATION = " + 
+                (String)context.getAttribute("PROBE_INIT_STATUS"));
+        QTLServiceImpl.probeSetLookup =
+                (Map<String, List<String>>)context.getAttribute("probeLookup");
+        QTLServiceImpl.mgiLookup =
+                (Map<String, Map<String,String>>)context.getAttribute("mgiLookup");
+        System.out.println("GEX INITIALIZATION = " +
+                (String)context.getAttribute("GEX_INIT_STATUS"));
+        QTLServiceImpl.lungIntensityLookup =
+                (Map)context.getAttribute("lungIntensityLookup");
+        QTLServiceImpl.lungStrainLookup =
+                (Map<String, List<String>>)context.getAttribute("lungStrainLookup");
+
         //  Get our location function lookup
         CGDSnpDB snpDb = new CGDSnpDB();
         try {
-            if (this.snpLocFuncs == null) {
-                this.snpLocFuncs = snpDb.getSNPLocFuncList();
+            if (QTLServiceImpl.snpLocFuncs == null) {
+                QTLServiceImpl.snpLocFuncs = snpDb.getSNPLocFuncList();
             }
         } catch (SQLException sqle) {
             throw new ServletException(sqle.getMessage());
         }
+
     }
 
-
+    /**
+     * readQTLFile is used to read in the users uploaded QTL Input File.
+     * This method assumes that the file was uploaded using the
+     * @see org.jax.qtln.server.QTLFileUploadServlet and uses the
+     * @see org.jax.qtln.server.QTLFileReader to actually read the file.
+     * @return A List of String arrays where each string array represents
+     * a tokenized line from the data file.
+     * @throws SMSException
+     */
     public List<String[]> readQTLFile()
             throws SMSException {
 
-        System.out.println("IN readQTLFile");
         // Check the HttpSession to see if a sequence file was uploaded
         HttpSession session = this.getSession();
         HttpServletRequest hsr = this.getThreadLocalRequest();
-        System.out.println("Got session info");
 
         //  The actual logic for running the analysis is in a separate
         //  class from the actual servlet.  I did this because the servlet
         //  class is shared by all users, and I wanted to use class attributes
         //  that were not shared.
         QTLFileReader qfr = new QTLFileReader();
-        System.out.println("Got reader, now read");
         return qfr.readQTLFile(session, hsr);
 
     }
 
-
-    public Map<String, Map<String,Integer>> narrowQTLs(List<List> qtls)
+    /**
+     * This method is the main logic for the QTLServiceImpl servlet.
+     * The purpose of this method is to run the analysis workflow for doing
+     * QTL Narrowing.<P>
+     * There are serveral steps included in this process including:
+     * <UL>
+     * <LI> Finding Smallest Common Regions of the QTL inputset</LI>
+     * <LI> Haplotype Analysis of regions</LI>
+     * <LI> Acquisition of SNP Annotations (location, function, assoicated gene)</LI>
+     * <LI> Microarray analysis of resulting set of genes</LI>
+     * </UL>
+     * The results of this analysis are quite sizable and are stored in the
+     * classes' session object.  It is expected that the user will then fetch
+     * only fetch the portions of the results needed for display at any given
+     * point in time.
+     * @param qtls
+     * @return A trimmed down, flattened version of the results are returned
+     *   instead of the entire data structure.  The real object representing
+     *   the full results is stored in the session object.
+     * @throws SMSException
+     */
+    public Map<String, List<ReturnRegion>> narrowQTLs(List<List> qtls)
             throws SMSException
     {
+        try {
         System.out.println("In narrowQTLs");
         //  The actual logic for running the analysis is in a separate
         //  class from the actual servlet.  I did this because the servlet
@@ -124,7 +188,6 @@ public class QTLServiceImpl extends RemoteServiceServlet implements
             haplotypeAnalyzer.doAnalysis(regions);
             System.out.println("after doAnalysis");
         } catch (Exception e) {
-            System.out.println("Caught an exception ");
             e.printStackTrace();
             throw new SMSException(e.getMessage());
         }
@@ -134,37 +197,83 @@ public class QTLServiceImpl extends RemoteServiceServlet implements
         // Need a CGDSnpDB object...
         CGDSnpDB snpDb = new CGDSnpDB();
 
-        //Map<String, List<Region>> generic_results = (Map<String, List<Region>>)regions;
+        // This loop serves two purposes:
+        // 1) use the cgd snp db to pull the annotations for snps per region
+        //    including location/function, and mgi gene accession ids
+        // 2) Create a "trim" data structure to return to the user interface.
         Map<String, List<Region>> generic_results = regions;
-        Map<String, Map<String, Integer>> ret_results = new HashMap<String, Map<String, Integer>>();
-        System.out.println("results have " + generic_results.keySet().size() + " chromosomes");
+        Map<String, List<ReturnRegion>> ret_results =
+                new HashMap<String, List<ReturnRegion>>();
+        System.out.println("results have " + generic_results.keySet().size() +
+                " chromosomes");
+        //  Get an ExpressionAnalyzer object for the gene experession analysis
+        //  we'll do in this loop.
+        ExpressionAnalyzer analyzeGEX = new ExpressionAnalyzer(probeSetLookup,
+                mgiLookup, lungIntensityLookup, lungStrainLookup);
         for (String chr:generic_results.keySet()) {
             List<Region> myRegions = generic_results.get(chr);
-            Map regionMap = new HashMap<String, Integer>();
+            // list of lists, where each row contains:
+            //   region_key, qtls, num snps, genes
+            List<ReturnRegion> regionReturn = new ArrayList<ReturnRegion>();
             System.out.println(chr + " has " + myRegions.size() + " regions.");
             for (Region region: myRegions) {
-                String region_key = "" + region.getStart() + "-" + region.getEnd();
+                ReturnRegion oneRegion = new ReturnRegion();
+                String region_key = "" + region.getStart() + "-" +
+                        region.getEnd();
+                oneRegion.setRegionKey(region_key);
+                oneRegion.setQtls(((OverlappingRegion)region).getQtls());
                 Integer snp_count = new Integer(0);
                 if (region.getSnps() != null) {
+                    //  We return the regions and a count of the snps in region
                     snp_count = new Integer(region.getSnps().size());
                     List<Integer> snps = new ArrayList<Integer>();
-                    Set<Map.Entry<Integer,SNP>> snp_positions = region.getSnps().entrySet();
+                    Set<Map.Entry<Integer,SNP>> snp_positions =
+                            region.getSnps().entrySet();
                     for (Map.Entry<Integer,SNP> snp:snp_positions) {
                         snps.add(snp.getValue().getBPPosition());
                     }
                     try {
+                        // Pull SNP "details" from CGD SNP DB
                         List<List> details =
                             snpDb.getSNPDetails(region.getChromosome(), snps);
                         OverlappingRegion oRegion = (OverlappingRegion)region;
+                        //  Add details to our underlying data structure
                         oRegion.addSnpDetails(details);
                     } catch (SQLException sqle) {
                         throw new SMSException(sqle.getMessage());
                     }
+                    // Once we have the SNP details for a region, then we can
+                    // take the genes found, and use them to do expression
+                    // anlysis
+                    // TODO:  In the future add an "If" to determine if we are
+                    // using one of our default experiments or a user uploaded
+                    // experiment.
+                    if (region.getGenes() != null) {
+                        try {
+                            analyzeGEX.analyzeRegion((OverlappingRegion)region);
+                        } catch (MathRuntimeException mre) {
+                            mre.printStackTrace();
+                            throw new SMSException(mre.getMessage());
+                        }
+                    }
+
                 }
-                regionMap.put(region_key, snp_count);
+                oneRegion.setNumberSnps(snp_count);
+                Map<Integer, Gene> geneMap = region.getGenes();
+                List<Gene> genes = new ArrayList<Gene>();
+                if (geneMap != null && geneMap.size() > 0) {
+                    Set<Map.Entry<Integer, Gene>> geneEntries = geneMap.entrySet();
+                    for (Map.Entry<Integer, Gene> geneEntry : geneEntries) {
+                        genes.add(geneEntry.getValue());
+                    }
+                }
+                oneRegion.setGenes(genes);
+                regionReturn.add(oneRegion);
             }
-            ret_results.put(chr, regionMap);
+            ret_results.put(chr, regionReturn);
         }
+        // Put our results in the session object so the user can get this
+        // information back piecemeal with future calls.
         this.narrowingStatus = "Caching results...";
         HttpSession session = this.getSession();
         session.setAttribute("REGIONS", generic_results);
@@ -173,12 +282,24 @@ public class QTLServiceImpl extends RemoteServiceServlet implements
         System.out.println("Done in narrowQTLs, returning results! ");
 
         return ret_results;
+        } catch (SMSException sms) {
+            throw sms;
+        } catch (Exception e) {
+            e.printStackTrace();
+            throw new SMSException(e);
+        }
 
     }
 
+    /**
+     * This is a call back method used to give the user interface the ability
+     * to poll the status of the Narrowing analysis.
+     * @return  A simple status string.
+     */
     public String getNarrowingStatus() {
         return this.narrowingStatus;
     }
+
 
     /**
      * Returns the current session
