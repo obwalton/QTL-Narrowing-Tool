@@ -39,8 +39,6 @@ public class SNPFile {
     public static final int SNP_ID_COL = 0;
     /** The column where the RS Number can be found */
     public static final int RS_NUM_COL = 1;
-    /** The column where the Build 36 Position can be found */
-    //public static final int BUILD_36_COL = 4;
     /** The column where the Build 37 Position can be found */
     public static final int BUILD_37_COL = 3;
     /** The column where the SNP Source can be found */
@@ -471,7 +469,9 @@ public class SNPFile {
         }
 
         SNP snp = new SNP(snp_position);
+
         // Keep SNP if All high responding strains have same base value ...
+        char hrCall = 'N';
         boolean high = false;
         boolean first = true;
         for (String strain : highRespondingStrains) {
@@ -486,6 +486,11 @@ public class SNPFile {
             BitSet calls = strainBaseCalls.get(strain);
             if (first) {
                 high = calls.get(snp_index);
+                if (high)
+                    hrCall = this.baseCall1_array[snp_index];
+                else
+                    hrCall = this.baseCall0_array[snp_index];
+
                 if (debug) System.out.println("Basecall for strain " + strain + " 'High' value " + high + " at index " + snp_index);
                 first = false;
             } else {
@@ -498,8 +503,10 @@ public class SNPFile {
                 }
             }
         }
+        snp.setHighRespondingBaseValue(hrCall);
 
         // ... && All low responding strains have the same base value
+        char lrCall = 'N';
         boolean low = false;
         first = true;
         for (String strain : lowRespondingStrains) {
@@ -514,6 +521,10 @@ public class SNPFile {
             BitSet calls = strainBaseCalls.get(strain);
             if (first) {
                 low = calls.get(snp_index);
+                if (low)
+                    lrCall = this.baseCall1_array[snp_index];
+                else
+                    lrCall = this.baseCall0_array[snp_index];
                 if (debug) System.out.println("Basecall for strain " + strain + " 'Low' value " + low + " at index " + snp_index);
                 first = false;
             } else {
@@ -526,6 +537,7 @@ public class SNPFile {
                 }
             }
         }
+        snp.setLowRespondingBaseValue(lrCall);
         
         
         //  ... && high responding base != low responding base
@@ -537,54 +549,10 @@ public class SNPFile {
             throw new SNPDoesNotMeetCriteriaException(msg);
         }
 
-        // This is a keeper, start populating the SNP to be returned
-        //if (build.toUpperCase().equals("36"))
-        //    snp.setBuild37Position(this.b37Positions_array[snp_index]);
-        //else
-        //    snp.setBuild36Position(this.b36Positions_array[snp_index]);
         // TODO:  Add all of these back in when I work out my memory problems
         //snp.setSnpId(this.snpIds_array[snp_index]);
         //snp.setRsNumber(this.rsNums_array[snp_index]);
         //snp.setSource(this.sourceMap.get(this.sources_array[snp_index]));
-
-
-        //  collect all other strains with HR base
-        //  collect all other strains with LR base
-        boolean hi_call_set = false;
-        boolean lo_call_set = false;
-
-        //  For each strain, add it to either the high or low responding set
-        for (String strain:this.strain_array) {
-            int index = Arrays.binarySearch(this.strain_array, strain);
-            // We've stored all base values in the bitset as a true or a false,
-            // essentially a 1 or a 0.  We've then stored the actual base call
-            // values as chars, as for a snp there can only be two values from
-            // a, c, t, g
-            boolean base = this.strainBaseCalls.get(strain).get(index);
-            char call;
-            if (base)
-                call = this.baseCall1_array[index];
-            else
-                call = this.baseCall0_array[index];
-
-            //  If the base (t or f) is the same as high (t or f), add
-            //  to the high responding strains.  Otherwise add to the
-            //  low responding group.  Set the base call if it hasn't been
-            //  set yet.
-            if (high == base) {
-                snp.addHighRepsondingStrain(strain);
-                if (! hi_call_set) {
-                    snp.setHighRespondingBaseValue(call);
-                    hi_call_set = true;
-                }
-            } else {
-                snp.addLowRespondingStrain(strain);
-                if (! lo_call_set) {
-                    snp.setLowRespondingBaseValue(call);
-                    lo_call_set = true;
-                }
-            }
-        }
 
         return snp;
     }
