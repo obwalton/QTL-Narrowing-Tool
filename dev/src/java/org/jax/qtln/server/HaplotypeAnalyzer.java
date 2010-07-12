@@ -5,7 +5,6 @@
 
 package org.jax.qtln.server;
 
-import java.sql.SQLException;
 import java.util.HashMap;
 import org.jax.qtln.regions.SNPDoesNotMeetCriteriaException;
 import org.jax.qtln.regions.OverlappingRegion;
@@ -15,7 +14,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import org.jax.qtln.db.CGDSnpDB;
-import org.omg.SendingContext.RunTime;
 
 /**
  * Used for doing the Haplotype Analysis step of the QTL Narrowing workflow
@@ -68,34 +66,6 @@ public class HaplotypeAnalyzer {
     public HaplotypeAnalyzer (Map<String, SNPFile> lookup) {
         this.cgdSNPLookup = lookup;
     }
-
-    /**
-     * This method is used to actually execute the haplotype analysis.  See
-     * the class header for an explaination of the analysis.
-     *
-     * @param regions  This is a map of regions of interest by chromosome.
-     *    The regions object is updated with SNPS that are found.
-     *
-    public void doAnalysis(Map<String, List<Region>> regions)
-            throws SQLException
-    {
-        System.out.println("In HaplotypeAnalyzer.doAnalysis...");
-        //  The keys are chromsomes
-        Set<String> keys = regions.keySet();
-        Runtime rt = Runtime.getRuntime();
-        //  for each chromsome
-        for (String key : keys) {
-            //  for each region on the chromosome
-            System.out.println("Getting SNPs for Chromosome " + key);
-
-            for (Region region : regions.get(key)) {
-                System.out.println("Before Region - free memory: " + rt.freeMemory());
-                region = getSnpsInRegion(key, (OverlappingRegion)region);
-                System.out.println("After Region - free memory: " + rt.freeMemory());
-            }
-        }
-
-    }*/
 
     /**
      * This method is used to actually execute the haplotype analysis.  See
@@ -196,80 +166,6 @@ public class HaplotypeAnalyzer {
         return region;
     } 
 
-    /**
-     * Finds all of the SNPS in our region.
-     *
-     * @param chromosome  The chromosome of interest
-     * @param region  The region we are finding SNPs in
-     * @return  A new version of the region with the SNPs added.
-     *
-    private Region getSnpsInRegion(String chromosome, OverlappingRegion region)
-        throws SQLException
-    {
-        System.out.println("In HaplotypeAnalyzer.getSnpsInRegion...");
-        //  get two lists from region:
-        //      High responding strains
-        //      Low responding strains
-        List highRespondingStrains = region.getHighRespondingStrains();
-        List lowRespondingStrains = region.getLowRespondingStrains();
-        HashMap<String, Integer>  diagnostics = new HashMap<String, Integer>();
-
-        //  Find the array of candidate SNPs in the region.
-        //int[] snpSubSet = this.snpLookup.findSnpsPositionsInRange(chromosome,
-        //        region.getStart(), region.getEnd());
-        System.out.println("Before findSnps - free memory: " + Runtime.getRuntime().freeMemory());
-        Map<Integer,Map<String,String>> snpSubSet =
-                this.snpLookup.findSnpsPositionsInRange(chromosome,
-                region.getStart(), region.getEnd());
-        System.out.println("After findSnps - free memory: " + Runtime.getRuntime().freeMemory());
-
-        //Map<Integer, Integer> snpSubSet =
-        //        this.snpLookup.findSnpsPositionsInRange(chromosome,
-        //        region.getStart(), region.getEnd());
-        System.out.println("after find SnpsPositionsInRange");
-
-        // Get all the SNPs that meet the criteria and add them to the
-        // region. (criteria defined in class header and the SNPFile class...)
-        int snp_count = 0;
-        Set<Integer> keys = snpSubSet.keySet();
-        System.out.println("Before analyze - free memory: " + Runtime.getRuntime().freeMemory());
-        for (Integer snp_position:keys) {
-            SNP snp = null;
-            try {
-                snp = this.snpLookup.analyzeSNP(snp_position, chromosome,
-                        snpSubSet.get(snp_position), highRespondingStrains,
-                        lowRespondingStrains);
-            }
-            catch (SNPDoesNotMeetCriteriaException e) {
-                //  TODO:  Consider logging snps that fail criteria and why
-                if(diagnostics.containsKey(e.getMessage())) {
-                    int value = diagnostics.get(e.getMessage()).intValue();
-                    value++;
-                    diagnostics.put(e.getMessage(), value);
-                }
-                else {
-                    diagnostics.put(e.getMessage(), 1);
-                }
-                continue;
-            }
-            // If SNP kept add to our region
-            if (snp != null)
-                region.addSnp(snp);
-                ++snp_count;
-
-        }
-        System.out.println("Kept " + snp_count + " for region");
-        System.out.println("after analyze - free memory: " + Runtime.getRuntime().freeMemory());
-        System.gc();
-        System.out.println("Encouraged GC!");
-
-
-        // Print out some diagnostics about rejected snps
-        for (String key:diagnostics.keySet()) {
-            System.out.println(key + " " + diagnostics.get(key));
-        }
-        return region;
-    }*/
 
 
 }
