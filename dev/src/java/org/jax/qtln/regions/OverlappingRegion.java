@@ -7,7 +7,9 @@ package org.jax.qtln.regions;
 
 import java.io.Serializable;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.TreeMap;
 
 /**
@@ -25,6 +27,7 @@ public class OverlappingRegion implements Region, Serializable {
     private ArrayList<String> highRespondingStrains;
     private ArrayList<String> lowRespondingStrains;
     private TreeMap<Integer, SNP> snps;
+    private HashMap<Integer, Gene> genes;
 
     public OverlappingRegion () {
 
@@ -125,6 +128,26 @@ public class OverlappingRegion implements Region, Serializable {
         this.snps.put(snp.getBPPosition(), snp);
     }
 
+    public Map<Integer, Gene> getGenes() {
+        return genes;
+    }
+
+    public void setGenes(HashMap<Integer,Gene> genes) {
+        this.genes = genes;
+    }
+
+    public void addGene(Integer cgd_gene_id, String mgi_accession_id) {
+        if (this.genes == null) {
+            this.genes = new HashMap<Integer,Gene>();
+        }
+        Gene gene = new Gene(cgd_gene_id, mgi_accession_id);
+        this.genes.put(cgd_gene_id, gene);
+    }
+
+    public void addGene(int cgd_gene_id, String mgi_accession_id) {
+        addGene(new Integer(cgd_gene_id), mgi_accession_id);
+    }
+
     public Region getOverlappingRegion(OverlappingRegion other)
         throws NoOverlapException
     {
@@ -178,6 +201,8 @@ public class OverlappingRegion implements Region, Serializable {
     }
 
     public void addSnpDetails(List<List> details) {
+        Integer gene_id;
+        String mgi_id;
         for (List row:details) {
             Integer position = (Integer)row.get(1);
             SNP snp = this.snps.get(position);
@@ -187,9 +212,12 @@ public class OverlappingRegion implements Region, Serializable {
                 continue;
             }
             snp.setCgdSnpId((Integer)row.get(0));
-            snp.setCgdAssociatedGeneId((Integer)row.get(3));
-            snp.addSnpAnnotation((Integer)row.get(2));
 
+            snp.addSnpAnnotation((Integer)row.get(2));
+            gene_id = (Integer)row.get(3);
+            mgi_id  = (String)row.get(4);
+            snp.setCgdAssociatedGeneId(gene_id);
+            addGene(gene_id, mgi_id);
         }
     }
 }
