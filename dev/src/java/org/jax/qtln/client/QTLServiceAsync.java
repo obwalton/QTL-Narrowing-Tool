@@ -10,7 +10,7 @@ import java.util.List;
 import java.util.Map;
 
 import com.google.gwt.user.client.rpc.AsyncCallback;
-import org.jax.qtln.regions.Region;
+import org.jax.qtln.regions.ReturnRegion;
 
 
 /**
@@ -20,7 +20,9 @@ import org.jax.qtln.regions.Region;
 public interface QTLServiceAsync {
     public void readQTLFile(AsyncCallback<List<String[]>> callback);
 
-    public void narrowQTLs(List<List> qtls, AsyncCallback<Map<String, Map<String,Integer>>> callback);
+    public void narrowQTLs(List<List> qtls, AsyncCallback<Map<String, 
+            List<ReturnRegion>>> callback);
     public void getNarrowingStatus(AsyncCallback<String> callback);
+
 
 }
