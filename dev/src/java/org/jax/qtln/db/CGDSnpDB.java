@@ -215,94 +215,22 @@ public class CGDSnpDB {
     }
 
     /**
-     * getSNPDetailPreparedStatement is intended to get a single prepared
-     * statement to be used over and over.  It uses the CGDSnpDB class
+     * getSNPDetail is intended to get all the SNPs on the given chromosome,
+     * in the list of positions.  It uses the CGDSnpDB class
      * connection attribute.
      *
-     * When done with the prepared statement the user should either close it
-     * or call the closePreparedStatement(PreparedStatement ps) method of this
-     * class.
-     * @return  PreparedStatement expecting two parameters a String based
-     * Chromosome name and an integer basepair position of the snp.  The query
-     * returns columns for: snpid, _loc_func_key, gene_id (add more later)
+     * @return  A List of rows, where each row is a slist of columns.  The query
+     * returns columns for: snpid, bp_position, _loc_func_key, gene_id, and
+     * mgi_geneid (mgi accession id)
      */
-    public PreparedStatement getSNPDetailPreparedStatement()
-            throws SQLException
-    {
-        PreparedStatement query = null;
-        //  For performance reasons we assume imputed source is id 16
-        String imputed_strains = "select s.snpid, st._loc_func_key, st.gene_id " +
-                "from snp_main s, snp_chromosome c, snp_by_source ss, " +
-                "snp_transcript st " +
-                "where  chromosome_name =  ? " +
-                "and c.chromosome_id = s.chromosome_id " +
-                "and s.bp_position = ? " +
-                "and s.snpid = ss.snpid " +
-                "and ss.source_id = 16 ";
-        try {
-            Connection conn = getConnection();
-            query = conn.prepareStatement(imputed_strains);
-        
-        } catch (SQLException sqle) {
-            printSQLException(sqle);
-            throw sqle;
-        }
-        return query;
-    }
-
-    public void closePreparedStatement(PreparedStatement ps)
-            throws SQLException
-    {
-        try {
-            if (ps != null) {
-                ps.close();
-            }
-        } catch (SQLException sqle) {
-            printSQLException(sqle);
-            throw sqle;
-        }
-    }
-
-    public List<List> getSNPDetails(int bpPosition, String chromosome,
-            PreparedStatement ps)
-            throws SQLException
-    {
-        List<List> results = new ArrayList<List>();
-        ResultSet rs = null;
-        try {
-            ps.setString(1, chromosome);
-            ps.setInt(2, bpPosition);
-            rs = ps.executeQuery();
-            while(rs.next()) {
-                List these = new ArrayList();
-                these.add(rs.getInt(1));  //  snpid
-                these.add(rs.getInt(2));  //  _loc_func_key
-                these.add(rs.getInt(3));  //  gene_id
-                results.add(these);
-
-            }
-        } catch (SQLException sqle) {
-            printSQLException(sqle);
-            throw sqle;
-        } finally {
-            try {
-                if (rs != null) {
-                    rs.close();
-                }
-            } catch (SQLException sqle) {
-                printSQLException(sqle);
-            }
-        }
-        return results;
-    }
-
     public List<List> getSNPDetails(String chromosome, List<Integer> bpPosList)
             throws SQLException
     {
         List<List> results = new ArrayList<List>();
-        String detail_cmd = "select s.snpid, s.bp_position, st._loc_func_key, st.gene_id " +
+        String detail_cmd = "select s.snpid, s.bp_position, st._loc_func_key, " +
+                "st.gene_id, mgi.mgi_geneid " +
                 "from snp_main s, snp_chromosome c, snp_by_source ss, " +
-                "snp_transcript st " +
+                "snp_transcript st, cgd_genes_ensembl_mgi mgi " +
                 "where  chromosome_name =  '" +
                 chromosome + "' " +
                 "and c.chromosome_id = s.chromosome_id " +
@@ -321,8 +249,8 @@ public class CGDSnpDB {
                 "and s.snpid = ss.snpid " +
                 "and ss.source_id = 16 " +
                 "and s.snpid = st.snpid " +
+                "and st.gene_id = mgi.gene_id " +
                 "order by s.bp_position, s.snpid";
-        System.out.println(detail_cmd);
         ResultSet rs = null;
         Statement statement = null;
         try {
@@ -331,10 +259,11 @@ public class CGDSnpDB {
             rs = statement.executeQuery(detail_cmd);
             while(rs.next()) {
                 List these = new ArrayList();
-                these.add(rs.getInt(1));  //  snpid
-                these.add(rs.getInt(2));  //  bpPosition
-                these.add(rs.getInt(3));  //  _loc_func_key
-                these.add(rs.getInt(4));  //  gene_id
+                these.add(rs.getInt(1));    //  snpid
+                these.add(rs.getInt(2));    //  bpPosition
+                these.add(rs.getInt(3));    //  _loc_func_key
+                these.add(rs.getInt(4));    //  gene_id
+                these.add(rs.getString(5)); // mgi_geneid
                 results.add(these);
 
             }
@@ -377,16 +306,6 @@ public class CGDSnpDB {
         
         CGDSnpDB querySnpDB = new CGDSnpDB("cgd.jax.org", "cgdsnpdb",
                 "pup", "puppass");
-        /*List<String> sources = querySnpDB.getSourceList();
-        System.out.println("Found " + sources.size() + " sources:");
-        for (String source : sources) {
-            System.out.println(source);
-        }
-        List<String> strains = querySnpDB.getStrainListBySource("imputed");
-        System.out.println("Found " + strains.size() + " imputed strains:");
-        for (String strain : strains) {
-            System.out.println(strain);
-        }*/
 
         System.exit(0);
     }
