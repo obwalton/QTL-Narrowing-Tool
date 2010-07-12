@@ -270,6 +270,11 @@ public class ExpressionAnalyzer {
                     for (String strain : region.getHighRespondingStrains()) {
                         List<String> strainSamples =
                                 this.lungStrainLookup.get(strain);
+                        if (strainSamples == null) {
+                            System.out.println("For MGI ID: " + mgiId + " probe: " + probe + " HR strain " + strain + " there were no associated samples!");
+                            System.out.println("skipping");
+                            continue;
+                        }
                         for (String sample : strainSamples) {
                             int sample_pos = this.samples.indexOf(sample);
                             if (sample_pos < 0 || probe_pos < 0) {
@@ -284,6 +289,11 @@ public class ExpressionAnalyzer {
                     for (String strain : region.getLowRespondingStrains()) {
                         List<String> strainSamples =
                                 this.lungStrainLookup.get(strain);
+                        if (strainSamples == null) {
+                            System.out.println("For MGI ID: " + mgiId + " probe: " + probe + " LR strain " + strain + " there were no associated samples!");
+                            System.out.println("skipping");
+                            continue;
+                        }
                         for (String sample : strainSamples) {
                             int sample_pos = this.samples.indexOf(sample);
                             if (sample_pos < 0 || probe_pos < 0) {
