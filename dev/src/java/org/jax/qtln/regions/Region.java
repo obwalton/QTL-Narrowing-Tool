@@ -6,6 +6,7 @@
 package org.jax.qtln.regions;
 
 import java.io.Serializable;
+import java.util.Map;
 import java.util.TreeMap;
 
 
@@ -27,8 +28,11 @@ public interface Region extends Serializable {
  
     public int getStart();
 
+    //TODO:  These three are not common to QTL and overlapping region...remove?
     public void setSnps(TreeMap<Integer,SNP> snps);
     
     public TreeMap<Integer,SNP> getSnps();
+
+    public Map<Integer, Gene> getGenes();
 
 }
