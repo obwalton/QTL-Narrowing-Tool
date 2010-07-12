@@ -20,8 +20,7 @@ public class QTLSet implements Serializable {
     private static final long serialVersionUID =
             4741175800356479306L;
 
-
-    private ArrayList qtls;
+    private ArrayList<QTL> qtls;
     private String chromosome;
     private int minCoordinate = 0;
     private int maxCoordinate = 0;
