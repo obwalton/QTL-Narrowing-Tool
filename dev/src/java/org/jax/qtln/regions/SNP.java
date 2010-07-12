@@ -19,15 +19,8 @@ public class SNP implements Serializable {
     private String snpID;
     private String rsNumber;
     private int bpPosition;
-    private int build37Position;
     private char hrBaseValue;
     private char lrBaseValue;
-    private double hrMeanIntensity;
-    private double lrMeanIntensity;
-    private ArrayList<String> hrStrains;
-    private ArrayList<String> lrStrains;
-    private double pValue;
-    private double qValue;
     private ArrayList<Integer> cgdSnpAnnotations;
     private String source;
     private int cgdSnpId;
@@ -50,15 +43,12 @@ public class SNP implements Serializable {
     }
 
     public SNP () {
-        this.hrStrains = new ArrayList<String>();
-        this.lrStrains = new ArrayList<String>();
         this.cgdSnpAnnotations = new ArrayList<Integer>();
 
     }
    
     public SNP(int position) {
         this();
-        this.build37Position = position;
         this.bpPosition = position;
     }
 
@@ -68,14 +58,6 @@ public class SNP implements Serializable {
 
     public void setBPPosition(int position) {
         this.bpPosition = position;
-    }
-
-    public int getBuild37Position() {
-        return build37Position;
-    }
-
-    public void setBuild37Position(int build37Position) {
-        this.build37Position = build37Position;
     }
 
     public ArrayList<Integer> getSnpAnnotations() {
@@ -98,68 +80,12 @@ public class SNP implements Serializable {
         this.hrBaseValue = hrBaseValue;
     }
 
-    public double getHighRespondingMeanIntensity() {
-        return hrMeanIntensity;
-    }
-
-    public void setHighRespondingMeanIntensity(double hrMeanIntensity) {
-        this.hrMeanIntensity = hrMeanIntensity;
-    }
-
-    public ArrayList<String> getHighRespondingStrains() {
-        return hrStrains;
-    }
-
-    public void setHighRespondingStrains(ArrayList<String> hrStrains) {
-        this.hrStrains = hrStrains;
-    }
-
-    public void addHighRepsondingStrain(String strain) {
-        this.hrStrains.add(strain);
-    }
-
     public char getLowRespondingBaseValue() {
         return lrBaseValue;
     }
 
     public void setLowRespondingBaseValue(char lrBaseValue) {
         this.lrBaseValue = lrBaseValue;
-    }
-
-    public double getLowRespondingMeanIntensity() {
-        return lrMeanIntensity;
-    }
-
-    public void setLowRespondingMeanIntensity(double lrMeanIntensity) {
-        this.lrMeanIntensity = lrMeanIntensity;
-    }
-
-    public ArrayList<String> getLowRespondingStrains() {
-        return lrStrains;
-    }
-
-    public void setLowRespondingStrains(ArrayList<String> lrStrains) {
-        this.lrStrains = lrStrains;
-    }
-
-    public void addLowRespondingStrain(String strain) {
-        this.lrStrains.add(strain);
-    }
-
-    public double getPValue() {
-        return pValue;
-    }
-
-    public void setPValue(double pValue) {
-        this.pValue = pValue;
-    }
-
-    public double getQValue() {
-        return qValue;
-    }
-
-    public void setQValue(double qvalue) {
-        this.qValue = qvalue;
     }
 
     public String getSnpId() {
