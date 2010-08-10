@@ -23,4 +23,5 @@ public interface QTLService extends RemoteService{
     public Map<String, List<ReturnRegion>> narrowQTLs(List<List> qtls)
             throws Throwable;
     public String getNarrowingStatus() throws Throwable;
+    public String[] getStrains() throws Throwable;
 }

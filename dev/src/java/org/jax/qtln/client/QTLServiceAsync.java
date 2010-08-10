@@ -23,6 +23,7 @@ public interface QTLServiceAsync {
     public void narrowQTLs(List<List> qtls, AsyncCallback<Map<String, 
             List<ReturnRegion>>> callback);
     public void getNarrowingStatus(AsyncCallback<String> callback);
+    public void getStrains(AsyncCallback<String[]> callback);
 
 
 }
