@@ -556,4 +556,8 @@ public class SNPFile {
 
         return snp;
     }
+
+    public String[] getStrains() {
+        return this.strain_array;
+    }
 }
