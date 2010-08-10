@@ -7,8 +7,10 @@ import org.jax.qtln.regions.QTLSet;
 import org.jax.qtln.regions.Region;
 import com.google.gwt.user.server.rpc.RemoteServiceServlet;
 import java.sql.SQLException;
+import java.text.DecimalFormat;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -133,6 +135,40 @@ public class QTLServiceImpl extends RemoteServiceServlet implements
     }
 
     /**
+     * getStrains is used to fetch the list of strains created at initialization
+     * 
+     * @see org.jax.qtln.server.SNPFile to see actual source of strains.
+     * @return A array of Strings representing the list of valid strains we can
+     * work with.
+     * @throws SMSException
+     */
+    public String[] getStrains()
+            throws SMSException
+    {
+        System.out.println ("IN getStrains");
+        String[] strains = new String[0];
+        if (QTLServiceImpl.cgdSNPLookup != null) {
+            //  Only need one SNPFile as the strain list
+            //  should be the same in all
+            Set keys = this.cgdSNPLookup.keySet();
+            for (Iterator i = keys.iterator(); i.hasNext();) {
+                String key = (String)i.next();
+                System.out.println("getting strains from " + key);
+                SNPFile snpf = this.cgdSNPLookup.get(key);
+                strains = snpf.getStrains();
+                break;
+            }
+        } else {
+            System.out.println("NO LOOKUP AVAILABLE");
+            throw new SMSException("No strains found.  Initialization must " +
+                    "have been unsuccessful.");
+        }
+        System.out.println("Returning " + strains.length + " strains");
+        return strains;
+
+    }
+
+    /**
      * This method is the main logic for the QTLServiceImpl servlet.
      * The purpose of this method is to run the analysis workflow for doing
      * QTL Narrowing.<P>
@@ -191,7 +227,7 @@ public class QTLServiceImpl extends RemoteServiceServlet implements
             e.printStackTrace();
             throw new SMSException(e.getMessage());
         }
-        this.narrowingStatus = "Getting SNP Annotations...";
+        this.narrowingStatus = "SNP Annotations and GEX...";
 
         // Now get annotations to the SNPs
         // Need a CGDSnpDB object...
@@ -216,10 +252,15 @@ public class QTLServiceImpl extends RemoteServiceServlet implements
             //   region_key, qtls, num snps, genes
             List<ReturnRegion> regionReturn = new ArrayList<ReturnRegion>();
             System.out.println(chr + " has " + myRegions.size() + " regions.");
+            DecimalFormat fmt = new DecimalFormat("#,##0");
             for (Region region: myRegions) {
                 ReturnRegion oneRegion = new ReturnRegion();
-                String region_key = "" + region.getStart() + "-" +
-                        region.getEnd();
+                String region_key = new String();
+                region_key = fmt.format(region.getStart() * 1.0);
+                region_key += "-";
+                region_key += fmt.format(region.getEnd() * 1.0);
+                //String region_key = "" + region.getStart() + "-" +
+                //       region.getEnd();
                 oneRegion.setRegionKey(region_key);
                 oneRegion.setQtls(((OverlappingRegion)region).getQtls());
                 Integer snp_count = new Integer(0);
@@ -233,6 +274,9 @@ public class QTLServiceImpl extends RemoteServiceServlet implements
                         snps.add(snp.getValue().getBPPosition());
                     }
                     try {
+                        this.narrowingStatus = "Chr " + chr + ":" + region_key +
+                                " get SNP detail...";
+
                         // Pull SNP "details" from CGD SNP DB
                         List<List> details =
                             snpDb.getSNPDetails(region.getChromosome(), snps);
@@ -250,6 +294,7 @@ public class QTLServiceImpl extends RemoteServiceServlet implements
                     // experiment.
                     if (region.getGenes() != null) {
                         try {
+                            this.narrowingStatus = "Do GEX analysis for chr " + chr + ":" + region_key + "...";
                             analyzeGEX.analyzeRegion((OverlappingRegion)region);
                         } catch (MathRuntimeException mre) {
                             mre.printStackTrace();
@@ -278,7 +323,7 @@ public class QTLServiceImpl extends RemoteServiceServlet implements
         HttpSession session = this.getSession();
         session.setAttribute("REGIONS", generic_results);
 
-        this.narrowingStatus = "Done!";
+        this.narrowingStatus = "Done!  Returning results...";
         System.out.println("Done in narrowQTLs, returning results! ");
 
         return ret_results;
