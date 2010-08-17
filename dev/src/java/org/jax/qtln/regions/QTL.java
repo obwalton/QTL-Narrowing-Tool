@@ -27,6 +27,8 @@ public class QTL implements Region, Comparable, Serializable {
     private int qtlStart;
     private int qtlEnd;
     private TreeMap<Integer,SNP> snps;
+    private int totalSnps = 0;
+
 
     public QTL() {
         super();
@@ -135,4 +137,14 @@ public class QTL implements Region, Comparable, Serializable {
     public Map<Integer,Gene> getGenes() {
         return null;
     }
+
+    public void setTotalNumSNPsInRegion(int numsnps) {
+        this.totalSnps = numsnps;
+    }
+
+    public int getTotalNumSNPsInRegion() {
+        return this.totalSnps;
+    }
+
+
 }

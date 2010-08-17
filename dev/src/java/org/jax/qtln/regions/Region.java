@@ -35,4 +35,8 @@ public interface Region extends Serializable {
 
     public Map<Integer, Gene> getGenes();
 
+    public void setTotalNumSNPsInRegion(int numsnps);
+
+    public int getTotalNumSNPsInRegion();
+
 }

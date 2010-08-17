@@ -28,6 +28,7 @@ public class OverlappingRegion implements Region, Serializable {
     private ArrayList<String> lowRespondingStrains;
     private TreeMap<Integer, SNP> snps;
     private HashMap<Integer, Gene> genes;
+    private int totalSnps = 0;
 
     public OverlappingRegion () {
 
@@ -113,6 +114,15 @@ public class OverlappingRegion implements Region, Serializable {
         this.lowRespondingStrains.add(strain);
     }
 
+    public void setTotalNumSNPsInRegion(int numsnps) {
+        this.totalSnps = numsnps;
+    }
+
+    public int getTotalNumSNPsInRegion() {
+        return this.totalSnps;
+    }
+
+
     public TreeMap<Integer, SNP> getSnps() {
         return snps;
     }
@@ -132,20 +142,36 @@ public class OverlappingRegion implements Region, Serializable {
         return genes;
     }
 
+    public Gene getGene(Integer cgd_gene_id) {
+        return genes.get(cgd_gene_id);
+    }
+
+    public Gene getGene(int cgd_gene_id) {
+        return getGene(new Integer(cgd_gene_id));
+    }
+
     public void setGenes(HashMap<Integer,Gene> genes) {
         this.genes = genes;
     }
 
-    public void addGene(Integer cgd_gene_id, String mgi_accession_id) {
+    public void addGene(Integer cgd_gene_id, String mgi_accession_id,
+            String symbol, String name) {
         if (this.genes == null) {
             this.genes = new HashMap<Integer,Gene>();
         }
-        Gene gene = new Gene(cgd_gene_id, mgi_accession_id);
-        this.genes.put(cgd_gene_id, gene);
+        if (! this.genes.containsKey(cgd_gene_id)) {
+            Gene gene = new Gene(cgd_gene_id, mgi_accession_id);
+            if (! symbol.equals(""))
+                gene.setSymbol(symbol);
+            if (! name.equals(""))
+                gene.setName(name);
+            this.genes.put(cgd_gene_id, gene);
+        }
     }
 
-    public void addGene(int cgd_gene_id, String mgi_accession_id) {
-        addGene(new Integer(cgd_gene_id), mgi_accession_id);
+    public void addGene(int cgd_gene_id, String mgi_accession_id, String symbol,
+            String name) {
+        addGene(new Integer(cgd_gene_id), mgi_accession_id, symbol, name);
     }
 
     public Region getOverlappingRegion(OverlappingRegion other)
@@ -200,9 +226,25 @@ public class OverlappingRegion implements Region, Serializable {
         return overlap;
     }
 
+    /**
+     * This is both the location where SNP Details are loaded to the region
+     * and it's SNPs, but also where the Gene objects are added to the
+     * region, and where the snps within a gene are associated with that Gene.
+     * @param details  This is a list of lists which includes columns for:
+     *    <UL>
+     *    <LI>CGD SNP Id</LI>
+     *    <LI>???</LI>
+     *    <LI>SNP Annotation</LI>
+     *    <LI>CGD Gene ID</LI>
+     *    <LI>MGI Accession ID</LI>
+     *    </UL>
+     *
+     */
     public void addSnpDetails(List<List> details) {
         Integer gene_id;
         String mgi_id;
+        String symbol;
+        String name;
         for (List row:details) {
             Integer position = (Integer)row.get(1);
             SNP snp = this.snps.get(position);
@@ -216,8 +258,15 @@ public class OverlappingRegion implements Region, Serializable {
             snp.addSnpAnnotation((Integer)row.get(2));
             gene_id = (Integer)row.get(3);
             mgi_id  = (String)row.get(4);
+            symbol  = (String)row.get(5);
+            name  = (String)row.get(6);
+            snp.setRsNumber((String)row.get(7));
+            snp.setSnpId((String)row.get(7));
+            snp.setSource((String)row.get(8));
             snp.setCgdAssociatedGeneId(gene_id);
-            addGene(gene_id, mgi_id);
+            addGene(gene_id, mgi_id, symbol, name);
+            Gene gene = getGene(gene_id);
+            gene.addAssociatedSnp(snp);
         }
     }
 }

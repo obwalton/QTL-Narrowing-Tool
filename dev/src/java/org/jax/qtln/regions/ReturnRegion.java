@@ -7,7 +7,6 @@ package org.jax.qtln.regions;
 
 import java.io.Serializable;
 import java.util.List;
-import java.util.Map;
 
 /**
  *
@@ -17,7 +16,10 @@ public class ReturnRegion implements Serializable {
 
     private String regionKey;
     private QTLSet qtls;
+    //  This represents all selected SNPs in region
     private Integer numberSnps;
+    //  This represents all SNPs in region
+    private Integer totalNumberSnps;
     private List<Gene> genes;
 
     public ReturnRegion() {
@@ -45,6 +47,14 @@ public class ReturnRegion implements Serializable {
 
     public void setNumberSnps(Integer numberSnps) {
         this.numberSnps = numberSnps;
+    }
+
+    public int getTotalNumSNPsInRegion() {
+        return this.totalNumberSnps;
+    }
+
+    public void setTotalNumSnps(Integer numberSnps) {
+        this.totalNumberSnps = numberSnps;
     }
 
     public QTLSet getQtls() {
