@@ -168,6 +168,31 @@ public class QTLServiceImpl extends RemoteServiceServlet implements
 
     }
 
+
+    /**
+     * getStrains is used to fetch the list of strains created at initialization
+     *
+     * @see org.jax.qtln.server.SNPFile to see actual source of strains.
+     * @return A array of Strings representing the list of valid strains we can
+     * work with.
+     * @throws SMSException
+     */
+    public Map<Integer,String> getSnpAnnotLookup()
+            throws SMSException
+    {
+        System.out.println ("IN getSnpAnnotLookup");
+        Map<Integer, String> annotations = new HashMap<Integer, String>();
+        if (snpLocFuncs != null) {
+            annotations = snpLocFuncs;
+        } else {
+            System.out.println("NO LOOKUP AVAILABLE");
+            throw new SMSException("No SNP Annotation Lookup found.  " +
+                    "Initialization must have been unsuccessful.");
+        }
+        System.out.println("Returning " + annotations.size() + " lookup entries");
+        return annotations;
+    }
+
     /**
      * This method is the main logic for the QTLServiceImpl servlet.
      * The purpose of this method is to run the analysis workflow for doing
@@ -189,144 +214,153 @@ public class QTLServiceImpl extends RemoteServiceServlet implements
      *   the full results is stored in the session object.
      * @throws SMSException
      */
-    public Map<String, List<ReturnRegion>> narrowQTLs(List<List> qtls)
-            throws SMSException
-    {
+    public Map<String, List<ReturnRegion>> narrowQTLs(List<List> qtls,
+            boolean doGEX)
+            throws SMSException {
         try {
-        System.out.println("In narrowQTLs");
-        //  The actual logic for running the analysis is in a separate
-        //  class from the actual servlet.  I did this because the servlet
-        //  class is shared by all users, and I wanted to use class attributes
-        //  that were not shared.
-        this.narrowingStatus = "Initializing...";
+            System.out.println("In narrowQTLs");
+            //  The actual logic for running the analysis are in a separate
+            //  classes from the actual servlet.  I did this because the servlet
+            //  class is shared by all users, and I wanted to use class
+            //  attributes that were not shared.
+            this.narrowingStatus = "Initializing...";
 
-        // Take the 2D list of values and convert to a QTLSet object
-        QTLSet qtlSet = new QTLSet();
-        for (List qtl : qtls) {
+            // Take the 2D list of values and convert to a QTLSet object
+            QTLSet qtlSet = new QTLSet();
+            for (List qtl : qtls) {
+                try {
+                    qtlSet.addQTL(qtl);
+                } catch (InvalidChromosomeException e) {
+                    throw new SMSException(e.getMessage());
+                }
+            }
+
+            //  Now get the smallest common regions in our qtlSet
+            this.narrowingStatus = "Getting smallest common regions in mouse...";
+            System.out.println("...getting Smallest Common Regions");
+            SmallestCommonRegion scr = new SmallestCommonRegion(qtlSet);
+            Map<String, List<Region>> regions = scr.getRegions();
+
+            //  Now do haplotype mapping
+            this.narrowingStatus = "Doing haplotype analysis of Mouse regions...";
+            System.out.println("...doing Haplotype Analysis");
+            HaplotypeAnalyzer haplotypeAnalyzer = new HaplotypeAnalyzer(
+                    this.cgdSNPLookup);
             try {
-                qtlSet.addQTL(qtl);
-            } catch (InvalidChromosomeException e) {
+                haplotypeAnalyzer.doAnalysis(regions);
+                System.out.println("after doAnalysis");
+            } catch (Exception e) {
+                e.printStackTrace();
                 throw new SMSException(e.getMessage());
             }
-        }
+            this.narrowingStatus = "SNP Annotations and GEX...";
 
-        //  Now get the smallest common regions in our qtlSet
-        this.narrowingStatus = "Getting smallest common regions in mouse...";
-        System.out.println("...getting Smallest Common Regions");
-        SmallestCommonRegion scr = new SmallestCommonRegion(qtlSet);
-        Map<String, List<Region>> regions = scr.getRegions();
+            // Now get annotations to the SNPs
+            // Need a CGDSnpDB object...
+            CGDSnpDB snpDb = new CGDSnpDB();
 
-        //  Now do haplotype mapping
-        this.narrowingStatus = "Doing haplotype analysis of Mouse regions...";
-        System.out.println("...doing Haplotype Analysis");
-        HaplotypeAnalyzer haplotypeAnalyzer = new HaplotypeAnalyzer(this.cgdSNPLookup);
-        try {
-            haplotypeAnalyzer.doAnalysis(regions);
-            System.out.println("after doAnalysis");
-        } catch (Exception e) {
-            e.printStackTrace();
-            throw new SMSException(e.getMessage());
-        }
-        this.narrowingStatus = "SNP Annotations and GEX...";
-
-        // Now get annotations to the SNPs
-        // Need a CGDSnpDB object...
-        CGDSnpDB snpDb = new CGDSnpDB();
-
-        // This loop serves two purposes:
-        // 1) use the cgd snp db to pull the annotations for snps per region
-        //    including location/function, and mgi gene accession ids
-        // 2) Create a "trim" data structure to return to the user interface.
-        Map<String, List<Region>> generic_results = regions;
-        Map<String, List<ReturnRegion>> ret_results =
-                new HashMap<String, List<ReturnRegion>>();
-        System.out.println("results have " + generic_results.keySet().size() +
-                " chromosomes");
-        //  Get an ExpressionAnalyzer object for the gene experession analysis
-        //  we'll do in this loop.
-        ExpressionAnalyzer analyzeGEX = new ExpressionAnalyzer(probeSetLookup,
-                mgiLookup, lungIntensityLookup, lungStrainLookup);
-        for (String chr:generic_results.keySet()) {
-            List<Region> myRegions = generic_results.get(chr);
-            // list of lists, where each row contains:
-            //   region_key, qtls, num snps, genes
-            List<ReturnRegion> regionReturn = new ArrayList<ReturnRegion>();
-            System.out.println(chr + " has " + myRegions.size() + " regions.");
-            DecimalFormat fmt = new DecimalFormat("#,##0");
-            for (Region region: myRegions) {
-                ReturnRegion oneRegion = new ReturnRegion();
-                String region_key = new String();
-                region_key = fmt.format(region.getStart() * 1.0);
-                region_key += "-";
-                region_key += fmt.format(region.getEnd() * 1.0);
-                //String region_key = "" + region.getStart() + "-" +
-                //       region.getEnd();
-                oneRegion.setRegionKey(region_key);
-                oneRegion.setQtls(((OverlappingRegion)region).getQtls());
-                Integer snp_count = new Integer(0);
-                if (region.getSnps() != null) {
-                    //  We return the regions and a count of the snps in region
-                    snp_count = new Integer(region.getSnps().size());
-                    List<Integer> snps = new ArrayList<Integer>();
-                    Set<Map.Entry<Integer,SNP>> snp_positions =
-                            region.getSnps().entrySet();
-                    for (Map.Entry<Integer,SNP> snp:snp_positions) {
-                        snps.add(snp.getValue().getBPPosition());
-                    }
-                    try {
-                        this.narrowingStatus = "Chr " + chr + ":" + region_key +
-                                " get SNP detail...";
-
-                        // Pull SNP "details" from CGD SNP DB
-                        List<List> details =
-                            snpDb.getSNPDetails(region.getChromosome(), snps);
-                        OverlappingRegion oRegion = (OverlappingRegion)region;
-                        //  Add details to our underlying data structure
-                        oRegion.addSnpDetails(details);
-                    } catch (SQLException sqle) {
-                        throw new SMSException(sqle.getMessage());
-                    }
-                    // Once we have the SNP details for a region, then we can
-                    // take the genes found, and use them to do expression
-                    // anlysis
-                    // TODO:  In the future add an "If" to determine if we are
-                    // using one of our default experiments or a user uploaded
-                    // experiment.
-                    if (region.getGenes() != null) {
+            // This loop serves two purposes:
+            // 1) use the cgd snp db to pull the annotations for snps per region
+            //    including location/function, and mgi gene accession ids
+            // 2) Create a "trim" data structure to return to the user interface.
+            Map<String, List<Region>> generic_results = regions;
+            Map<String, List<ReturnRegion>> ret_results =
+                    new HashMap<String, List<ReturnRegion>>();
+            System.out.println("results have " + generic_results.keySet().size() +
+                    " chromosomes");
+            //  Get an ExpressionAnalyzer object for the gene experession analysis
+            //  we'll do in this loop.
+            ExpressionAnalyzer analyzeGEX = null;
+            if (doGEX)
+                analyzeGEX = new ExpressionAnalyzer(probeSetLookup, mgiLookup,
+                        lungIntensityLookup, lungStrainLookup);
+            for (String chr : generic_results.keySet()) {
+                List<Region> myRegions = generic_results.get(chr);
+                // list of lists, where each row contains:
+                //   region_key, qtls, num snps, genes
+                List<ReturnRegion> regionReturn = new ArrayList<ReturnRegion>();
+                System.out.println(chr + " has " + myRegions.size() + " regions.");
+                DecimalFormat fmt = new DecimalFormat("#,##0");
+                for (Region region : myRegions) {
+                    ReturnRegion oneRegion = new ReturnRegion();
+                    String region_key = new String();
+                    region_key = fmt.format(region.getStart() * 1.0);
+                    region_key += "-";
+                    region_key += fmt.format(region.getEnd() * 1.0);
+                    //String region_key = "" + region.getStart() + "-" +
+                    //       region.getEnd();
+                    oneRegion.setRegionKey(region_key);
+                    oneRegion.setQtls(((OverlappingRegion) region).getQtls());
+                    Integer snp_count = new Integer(0);
+                    if (region.getSnps() != null) {
+                        //  We return the regions and a count of the snps in region
+                        snp_count = new Integer(region.getSnps().size());
+                        List<Integer> snps = new ArrayList<Integer>();
+                        Set<Map.Entry<Integer, SNP>> snp_positions =
+                                region.getSnps().entrySet();
+                        for (Map.Entry<Integer, SNP> snp : snp_positions) {
+                            snps.add(snp.getValue().getBPPosition());
+                        }
                         try {
-                            this.narrowingStatus = "Do GEX analysis for chr " + chr + ":" + region_key + "...";
-                            analyzeGEX.analyzeRegion((OverlappingRegion)region);
-                        } catch (MathRuntimeException mre) {
-                            mre.printStackTrace();
-                            throw new SMSException(mre.getMessage());
+                            this.narrowingStatus = "Chr " + chr + ":" + region_key +
+                                    " get SNP detail...";
+
+                            // Pull SNP "details" from CGD SNP DB
+                            List<List> details = snpDb.getSNPDetails(
+                                    region.getChromosome(), snps);
+                            OverlappingRegion oRegion =
+                                    (OverlappingRegion) region;
+                            //  Add details to our underlying data structure
+                            oRegion.addSnpDetails(details);
+                        } catch (SQLException sqle) {
+                            throw new SMSException(sqle.getMessage());
+                        }
+                        // Once we have the SNP details for a region, then we can
+                        // take the genes found, and use them to do expression
+                        // anlysis
+                        // TODO:  In the future add an "If" to determine if we are
+                        // using one of our default experiments or a user uploaded
+                        // experiment.
+                        if (doGEX && region.getGenes() != null) {
+                            try {
+                                this.narrowingStatus = 
+                                        "Do GEX analysis for chr " + chr + ":"
+                                        + region_key + "...";
+                                analyzeGEX.analyzeRegion((OverlappingRegion) region);
+                            } catch (MathRuntimeException mre) {
+                                mre.printStackTrace();
+                                throw new SMSException(mre.getMessage());
+                            }
+                        }
+
+                    }
+                    oneRegion.setNumberSnps(snp_count);
+                    oneRegion.setTotalNumSnps(region.getTotalNumSNPsInRegion());
+                    Map<Integer, Gene> geneMap = region.getGenes();
+                    List<Gene> genes = new ArrayList<Gene>();
+                    if (geneMap != null && geneMap.size() > 0) {
+                        Set<Map.Entry<Integer, Gene>> geneEntries = geneMap.entrySet();
+                        for (Map.Entry<Integer, Gene> geneEntry : geneEntries) {
+                            genes.add(geneEntry.getValue());
                         }
                     }
-
+                    oneRegion.setGenes(genes);
+                    regionReturn.add(oneRegion);
                 }
-                oneRegion.setNumberSnps(snp_count);
-                Map<Integer, Gene> geneMap = region.getGenes();
-                List<Gene> genes = new ArrayList<Gene>();
-                if (geneMap != null && geneMap.size() > 0) {
-                    Set<Map.Entry<Integer, Gene>> geneEntries = geneMap.entrySet();
-                    for (Map.Entry<Integer, Gene> geneEntry : geneEntries) {
-                        genes.add(geneEntry.getValue());
-                    }
-                }
-                oneRegion.setGenes(genes);
-                regionReturn.add(oneRegion);
+                ret_results.put(chr, regionReturn);
             }
-            ret_results.put(chr, regionReturn);
-        }
-        // Put our results in the session object so the user can get this
-        // information back piecemeal with future calls.
-        this.narrowingStatus = "Caching results...";
-        HttpSession session = this.getSession();
-        session.setAttribute("REGIONS", generic_results);
+            // TODO:  Bag this if we determine there is no reason to come
+            // back down to server to get more data..
+            // Put our results in the session object so the user can get this
+            // information back piecemeal with future calls.
+            this.narrowingStatus = "Caching results...";
+            HttpSession session = this.getSession();
+            session.setAttribute("REGIONS", generic_results);
 
-        this.narrowingStatus = "Done!  Returning results...";
-        System.out.println("Done in narrowQTLs, returning results! ");
+            this.narrowingStatus = "Done!  Returning results...";
+            System.out.println("Done in narrowQTLs, returning results! ");
 
-        return ret_results;
+            return ret_results;
         } catch (SMSException sms) {
             throw sms;
         } catch (Exception e) {

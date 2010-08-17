@@ -243,13 +243,23 @@ public class ExpressionAnalyzer {
             Gene gene = geneEntry.getValue();
             //MGI accession ID
             String mgiId = gene.getMgiId();
-            // If the gene symbol is not yet set for the gene, set it and the
-            // name using the ones pulled from the MGI probe list.  This is
-            // a better source than using the CGD SNP Database.
+            // If the gene symbol is not yet set, or the symbol we got from CGD
+            // is not equal to the MGI symbol, set the symbol and name to MGI
+            // values. MGI is a more up to date source than the CGD SNP
+            // Database.
+
+            String symbol = "";
+            String name = "";
+            if(this.mgiLookup.containsKey(mgiId)) {
+                symbol = this.mgiLookup.get(mgiId).get("symbol");
+                name = this.mgiLookup.get(mgiId).get("name");
+            }
             if (this.mgiLookup.containsKey(mgiId)) {
-                if (gene.getSymbol() == null) {
-                    gene.setSymbol(this.mgiLookup.get(mgiId).get("symbol"));
-                    gene.setName(this.mgiLookup.get(mgiId).get("name"));
+                if (gene.getSymbol() == null ||
+                        (! gene.getSymbol().equals(symbol)
+                        && ! symbol.equals(""))) {
+                    gene.setSymbol(symbol);
+                    gene.setName(name);
                 }
             }
             probeIds = new ArrayList<String>();

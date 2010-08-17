@@ -118,6 +118,7 @@ public class HaplotypeAnalyzer {
         //  Find the array of candidate SNPs in the region.
         int[] snpSubSet = snpLookup.findSnpPositionsInRange(region.getStart(),
                 region.getEnd());
+        region.setTotalNumSNPsInRegion(snpSubSet.length);
 
         // Get all the SNPs that meet the criteria and add them to the
         // region. (criteria defined in class header and the SNPFile class...)
