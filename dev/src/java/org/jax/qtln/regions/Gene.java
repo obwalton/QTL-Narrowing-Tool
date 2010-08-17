@@ -32,6 +32,11 @@ public class Gene implements Serializable {
     public Gene () {
         this.hrStrains = new ArrayList<String>();
         this.lrStrains = new ArrayList<String>();
+        this.associatedSNPs = new ArrayList<SNP>();
+        this.probeSets = new ArrayList<String>();
+        this.hrMeanIntensity = Double.NaN;
+        this.lrMeanIntensity = Double.NaN;
+        this.pValue = Double.NaN;
     }
 
     public Gene(int cgdId, String mgi) {
