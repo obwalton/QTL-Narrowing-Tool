@@ -20,8 +20,10 @@ import org.jax.qtln.regions.ReturnRegion;
 @RemoteServiceRelativePath("qtl")
 public interface QTLService extends RemoteService{
     public List<String[]> readQTLFile() throws Throwable;
-    public Map<String, List<ReturnRegion>> narrowQTLs(List<List> qtls)
+    public Map<String, List<ReturnRegion>> narrowQTLs(List<List> qtls,
+            boolean doGEX)
             throws Throwable;
     public String getNarrowingStatus() throws Throwable;
     public String[] getStrains() throws Throwable;
+    public Map<Integer,String> getSnpAnnotLookup() throws Throwable;
 }
