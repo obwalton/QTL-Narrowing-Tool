@@ -227,11 +227,13 @@ public class CGDSnpDB {
             throws SQLException
     {
         List<List> results = new ArrayList<List>();
-        String detail_cmd = "select s.snpid, s.bp_position, st._loc_func_key, " +
-                "st.gene_id, mgi.mgi_geneid " +
+        String detail_cmd = "select distinct s.snpid, s.bp_position, st._loc_func_key, " +
+                "st.gene_id, mgi.mgi_geneid, mgi.marker_symbol, mgi.marker_name, " +
+                "sa.accession_id, sas.source_name " +
                 "from snp_main s, snp_chromosome c, snp_by_source ss, " +
-                "snp_transcript st, cgd_genes_ensembl_mgi mgi " +
-                "where  chromosome_name =  '" +
+                "snp_transcript st, cgd_genes_ensembl_mgi mgi,  " +
+                "snp_accession sa, snp_source sas " +
+                "where chromosome_name =  '" +
                 chromosome + "' " +
                 "and c.chromosome_id = s.chromosome_id " +
                 "and s.bp_position in (";
@@ -245,12 +247,17 @@ public class CGDSnpDB {
                 detail_cmd += "," + position;
 
         }
+        // snpid_type_id will only bring back RS numbers
         detail_cmd += ")" +
                 "and s.snpid = ss.snpid " +
                 "and ss.source_id = 16 " +
                 "and s.snpid = st.snpid " +
                 "and st.gene_id = mgi.gene_id " +
+                "and s.snpid = sa.snpid " +
+                "and sa.snpid_id_type = 1 " +
+                "and sa.source_id = sas.source_id " +
                 "order by s.bp_position, s.snpid";
+        //System.out.println(detail_cmd);
         ResultSet rs = null;
         Statement statement = null;
         try {
@@ -264,6 +271,10 @@ public class CGDSnpDB {
                 these.add(rs.getInt(3));    //  _loc_func_key
                 these.add(rs.getInt(4));    //  gene_id
                 these.add(rs.getString(5)); // mgi_geneid
+                these.add(rs.getString(6)); // gene symbol
+                these.add(rs.getString(7)); // gene name
+                these.add(rs.getString(8)); // accession_id
+                these.add(rs.getString(9)); // id source
                 results.add(these);
 
             }
