@@ -104,7 +104,8 @@ public class Gene implements Serializable {
     }
 
     public void addAssociatedSnp(SNP snp) {
-        this.associatedSNPs.add(snp);
+        if (! this.associatedSNPs.contains(snp))
+            this.associatedSNPs.add(snp);
     }
 
 
