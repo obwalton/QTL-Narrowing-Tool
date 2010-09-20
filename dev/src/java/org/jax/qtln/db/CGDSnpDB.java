@@ -229,10 +229,15 @@ public class CGDSnpDB {
         List<List> results = new ArrayList<List>();
         String detail_cmd = "select distinct s.snpid, s.bp_position, st._loc_func_key, " +
                 "st.gene_id, mgi.mgi_geneid, mgi.marker_symbol, mgi.marker_name, " +
-                "sa.accession_id, sas.source_name " +
-                "from snp_main s, snp_chromosome c, snp_by_source ss, " +
-                "snp_transcript st, cgd_genes_ensembl_mgi mgi,  " +
-                "snp_accession sa, snp_source sas " +
+                "sa.accession_id as rs_number, sa2.accession_id as provider_id, " +
+                "sas.source_name as provider " +
+                "from snp_main s LEFT JOIN (snp_accession sa) ON " +
+                "(s.snpid = sa.snpid and sa.snpid_id_type = 1) " +
+                "LEFT JOIN (snp_accession sa2, snp_source sas) ON " +
+                "(s.snpid = sa2.snpid and sa2.snpid_id_type = 3 " +
+                "and sa2.source_id = sas.source_id), " +
+                "snp_chromosome c, snp_by_source ss, " +
+                "snp_transcript st, cgd_genes_ensembl_mgi mgi " +
                 "where chromosome_name =  '" +
                 chromosome + "' " +
                 "and c.chromosome_id = s.chromosome_id " +
@@ -253,9 +258,6 @@ public class CGDSnpDB {
                 "and ss.source_id = 16 " +
                 "and s.snpid = st.snpid " +
                 "and st.gene_id = mgi.gene_id " +
-                "and s.snpid = sa.snpid " +
-                "and sa.snpid_id_type = 1 " +
-                "and sa.source_id = sas.source_id " +
                 "order by s.bp_position, s.snpid";
         //System.out.println(detail_cmd);
         ResultSet rs = null;
@@ -273,8 +275,9 @@ public class CGDSnpDB {
                 these.add(rs.getString(5)); // mgi_geneid
                 these.add(rs.getString(6)); // gene symbol
                 these.add(rs.getString(7)); // gene name
-                these.add(rs.getString(8)); // accession_id
-                these.add(rs.getString(9)); // id source
+                these.add(rs.getString(8)); // rs number
+                these.add(rs.getString(9)); // provider id
+                these.add(rs.getString(10)); // provider
                 results.add(these);
 
             }
