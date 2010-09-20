@@ -13,7 +13,7 @@ import java.util.List;
  */
 public class ArrayUtils {
 
-    public static int[] toArray(List<Integer> list) {
+    public static int[] toArrayInt(List<Integer> list) {
         int[] array = new int[list.size()];
         for (int i = 0; i < list.size(); i++) {
             array[i] = list.get(i);
@@ -22,7 +22,7 @@ public class ArrayUtils {
 
     }
 
-    public static int[] toArray(List<Integer> list, int nullDefault) {
+    public static int[] toArrayInt(List<Integer> list, int nullDefault) {
         int[] array = new int[list.size()];
         for (int i = 0; i < list.size(); i++) {
             if (list.get(i) == null)
@@ -33,7 +33,8 @@ public class ArrayUtils {
         return array;
 
     }
-    public static double[] toArray(List<Double> list) {
+
+    public static double[] toArrayDouble(List<Double> list) {
         double[] array = new double[list.size()];
         for (int i = 0; i < list.size(); i++) {
             array[i] = list.get(i);
@@ -42,7 +43,7 @@ public class ArrayUtils {
 
     }
 
-    public static double[] toArray(List<Double> list, double nullDefault) {
+    public static double[] toArrayDouble(List<Double> list, double nullDefault) {
          double[] array = new double[list.size()];
         for (int i = 0; i < list.size(); i++) {
             if (list.get(i) == null)
