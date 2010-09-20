@@ -59,8 +59,12 @@ public class QTLServiceImpl extends RemoteServiceServlet implements
     // probes  -> List of probe ids
     // intensities -> matrix rows/columns = probes/samples
     private static Map lungIntensityLookup;
+    private static Map liverIntensityLookup;
     // Strain -> [Sample names...]
     private static Map<String, List<String>> lungStrainLookup;
+    private static Map<String, List<String>> liverStrainLookup;
+    private static Map<String, List<String>> liverLowFatStrainLookup;
+    private static Map<String, List<String>> liverHighFatStrainLookup;
 
     //  This lookup is initialized in the Servlet "init()" method below.
     // cgdsnpdb _loc_func_key -> location/function description
@@ -96,6 +100,14 @@ public class QTLServiceImpl extends RemoteServiceServlet implements
                 (Map)context.getAttribute("lungIntensityLookup");
         QTLServiceImpl.lungStrainLookup =
                 (Map<String, List<String>>)context.getAttribute("lungStrainLookup");
+        QTLServiceImpl.liverIntensityLookup =
+                (Map)context.getAttribute("liverIntensityLookup");
+        QTLServiceImpl.liverStrainLookup =
+                (Map<String, List<String>>)context.getAttribute("liverStrainLookup");
+        QTLServiceImpl.liverLowFatStrainLookup =
+                (Map<String, List<String>>)context.getAttribute("liverLowFatStrainLookup");
+        QTLServiceImpl.liverHighFatStrainLookup =
+                (Map<String, List<String>>)context.getAttribute("liverHighFatStrainLookup");
 
         //  Get our location function lookup
         CGDSnpDB snpDb = new CGDSnpDB();
@@ -215,7 +227,7 @@ public class QTLServiceImpl extends RemoteServiceServlet implements
      * @throws SMSException
      */
     public Map<String, List<ReturnRegion>> narrowQTLs(List<List> qtls,
-            boolean doGEX)
+            boolean doGEX, String gexExp)
             throws SMSException {
         try {
             System.out.println("In narrowQTLs");
@@ -271,9 +283,22 @@ public class QTLServiceImpl extends RemoteServiceServlet implements
             //  Get an ExpressionAnalyzer object for the gene experession analysis
             //  we'll do in this loop.
             ExpressionAnalyzer analyzeGEX = null;
-            if (doGEX)
-                analyzeGEX = new ExpressionAnalyzer(probeSetLookup, mgiLookup,
+            if (doGEX) {
+                //  If LUNG Experiment
+                if (gexExp.equals("lung"))
+                    analyzeGEX = new ExpressionAnalyzer(probeSetLookup, mgiLookup,
                         lungIntensityLookup, lungStrainLookup);
+                //  If LIVER Experiment
+                else if (gexExp.equals("liver"))
+                    analyzeGEX = new ExpressionAnalyzer(probeSetLookup, mgiLookup,
+                        liverIntensityLookup, liverStrainLookup);
+                else if (gexExp.equals("liverlf"))
+                    analyzeGEX = new ExpressionAnalyzer(probeSetLookup, mgiLookup,
+                        liverIntensityLookup, liverLowFatStrainLookup);
+                else if (gexExp.equals("liverhf"))
+                    analyzeGEX = new ExpressionAnalyzer(probeSetLookup, mgiLookup,
+                        liverIntensityLookup, liverHighFatStrainLookup);
+            }
             for (String chr : generic_results.keySet()) {
                 List<Region> myRegions = generic_results.get(chr);
                 // list of lists, where each row contains:
@@ -377,6 +402,26 @@ public class QTLServiceImpl extends RemoteServiceServlet implements
      */
     public String getNarrowingStatus() {
         return this.narrowingStatus;
+    }
+
+    /**
+     * This method is used to clear the "REGIONS" attribute in the session,
+     * if the user has already run analysis.  This is the case where they
+     * want to start a new analysis in the same session
+     */
+    public Boolean clearAnalysis() {
+        System.out.println("Clearing session info");
+        HttpSession session = this.getSession();
+        Object old_results = session.getAttribute("REGIONS");
+
+        if (old_results != null) {
+            System.out.println("clearing regions attribute");
+            session.removeAttribute("REGIONS");
+            return new Boolean(true);
+        } else {
+            System.out.println("There was no REGION attribute");
+            return new Boolean(false);
+        }
     }
 
 
