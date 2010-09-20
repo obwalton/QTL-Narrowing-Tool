@@ -7,6 +7,7 @@ package org.jax.qtln.regions;
 
 import java.io.Serializable;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -245,6 +246,9 @@ public class OverlappingRegion implements Region, Serializable {
         String mgi_id;
         String symbol;
         String name;
+        // Order of presidence of IDs to show:
+        // Diversity array, NIEHS, Celera, Broad, GNF, Wild-Derived
+        String[] otherIdOrder = {"17", "1", "13", "2", "6", "18"};
         for (List row:details) {
             Integer position = (Integer)row.get(1);
             SNP snp = this.snps.get(position);
@@ -261,8 +265,26 @@ public class OverlappingRegion implements Region, Serializable {
             symbol  = (String)row.get(5);
             name  = (String)row.get(6);
             snp.setRsNumber((String)row.get(7));
-            snp.setSnpId((String)row.get(7));
-            snp.setSource((String)row.get(8));
+
+            String otherId = (String)row.get(8);
+            String otherSrc = (String)row.get(9);
+            String curId = snp.getSnpId();
+            String curSrc = snp.getSource();
+            if (curId == null) {
+                snp.setSnpId(otherId);
+                snp.setSource(otherSrc);
+            }
+            else {
+                //  There is an order to which we want to see Other Ids
+                int curIdx = Arrays.binarySearch(otherIdOrder, curId);
+                int newIdx = Arrays.binarySearch(otherIdOrder, otherId);
+                //  If the new ID has a lower index than the current, but is
+                //  not less than 0 (meaning not found), we use it.
+                if (curIdx > newIdx && newIdx > -1) {
+                    snp.setSnpId(otherId);
+                    snp.setSource(otherSrc);
+                }
+            }
             snp.setCgdAssociatedGeneId(gene_id);
             addGene(gene_id, mgi_id, symbol, name);
             Gene gene = getGene(gene_id);
