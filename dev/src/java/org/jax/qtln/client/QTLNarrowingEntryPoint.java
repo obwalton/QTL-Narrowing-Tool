@@ -13,6 +13,8 @@ import com.extjs.gxt.ui.client.event.GridEvent;
 import com.extjs.gxt.ui.client.event.Listener;
 import com.extjs.gxt.ui.client.event.MessageBoxEvent;
 import com.extjs.gxt.ui.client.store.ListStore;
+import com.extjs.gxt.ui.client.store.Store;
+import com.extjs.gxt.ui.client.store.StoreSorter;
 import com.extjs.gxt.ui.client.widget.ContentPanel;
 import com.extjs.gxt.ui.client.widget.Dialog;
 import com.extjs.gxt.ui.client.widget.MessageBox;
@@ -39,6 +41,8 @@ import com.google.gwt.user.client.ui.RootPanel;
 import com.google.gwt.event.dom.client.ClickEvent;
 import com.google.gwt.event.dom.client.ClickHandler;
 import com.google.gwt.i18n.client.NumberFormat;
+import com.google.gwt.user.client.DOM;
+import com.google.gwt.user.client.Element;
 import com.google.gwt.user.client.Timer;
 import com.google.gwt.user.client.rpc.AsyncCallback;
 import com.google.gwt.user.client.ui.FileUpload;
@@ -110,6 +114,9 @@ public class QTLNarrowingEntryPoint implements EntryPoint {
     //  URL for CGD SNP Database SNP Detail pages
     private static final String  CGD_SNP_URL = "http://cgd.jax.org/cgdsnpdb/parseQuery.php?snpid=";
 
+    private static final String UCSC_GENOME_BROWSER = "http://genome.ucsc.edu/cgi-bin/hgTracks?clade=mammal&org=Mouse&db=mm9&position=chr##CHR##%3A##RANGE##&hgt.suggest=&pix=800&Submit=submit";
+    private static final String HTML_COMMA = "%2C";
+
     /**
      * Create a remote service proxy to talk to the server-side analysis service
      */
@@ -134,13 +141,13 @@ public class QTLNarrowingEntryPoint implements EntryPoint {
     private MessageBox dialogBox;
     private Listener alertListener;
     private final RadioButton gexRadio0 =
-            new RadioButton("gexGroup", "Gene Expression Comparison:");
+            new RadioButton("gexGroup", " Gene Expression Comparison:");
     private final RadioButton gexRadio1 =
-            new RadioButton("gexGroup", "Upload RMA File:");
+            new RadioButton("gexGroup", " Upload RMA File:");
     private final RadioButton gexRadio2 =
-            new RadioButton("gexGroup", "No Gene Expression Comparison");
+            new RadioButton("gexGroup", " No Gene Expression Comparison");
     private final ListBox gexListBox = new ListBox();
-    private Button gexUploadButton = new Button("Define Exp. Desgn");
+    private Button gexUploadButton = new Button("Create Design");
     private Button narrowButton = new Button("Narrow QTLs");
     private Button clearButton = new Button("Clear");
     private ContentPanel resultsPanel = new ContentPanel();
@@ -148,6 +155,9 @@ public class QTLNarrowingEntryPoint implements EntryPoint {
     private MessageBox processingDialog;
     private Map<String, Map<String, ReturnRegion>> resultMap;
     private boolean doGEX = false;
+    private String defaultGEXExp = "lung";
+
+    private Map<String,Integer> chromosomeLookup = new HashMap<String,Integer>();
 
 
     /** 
@@ -161,6 +171,11 @@ public class QTLNarrowingEntryPoint implements EntryPoint {
      * that declares an implementing class as an entry-point
      */
     public void onModuleLoad() {
+
+        //  Initialize the Chromsome Lookup for later use
+        for (int i=0;i<MOUSE_CHROMOSOMES.length; i++) {
+            chromosomeLookup.put(MOUSE_CHROMOSOMES[i], i);
+        }
         //  Master Panel is the outer panel for all our display widgets
         masterPanel.setSpacing(5);
 
@@ -198,6 +213,7 @@ public class QTLNarrowingEntryPoint implements EntryPoint {
         // All widgets have to be given names so they can be submitted via the
         // form. Again this is due to the use of the file upload.
         mgiTextBox.setName("mgi_text");
+        mgiTextBox.setWidth("400");
         // Disable until we get phenotype searching set up
         mgiTextBox.setEnabled(false);
         mgiButton.setEnabled(false);
@@ -212,6 +228,10 @@ public class QTLNarrowingEntryPoint implements EntryPoint {
 
         // Create a FileUpload widget.
         final FileUpload upload = new FileUpload();
+        upload.setWidth("505");
+        // To force the width of the upload text box in Firefox
+        Element ee = upload.getElement();
+        DOM.setAttribute(ee, "size", "55"); // make Firefox 1.5.0.7 happy
         upload.setName("uploadQTLFile");
         uploadPanel.setSpacing(5);
         uploadPanel.add(uploadLabel);
@@ -284,6 +304,8 @@ public class QTLNarrowingEntryPoint implements EntryPoint {
                 gexRadio0.setValue(true);
                 gexListBox.addItem("12 Strain Survey in Lung", "lung");
                 gexListBox.addItem("12 Strain Survey in Liver", "liver");
+                gexListBox.addItem("12 Strain Survey in Liver - high fat diet", "liverhf");
+                gexListBox.addItem("12 Strain Survey in Liver - low fat diet", "liverlf");
                 gexListBox.setVisibleItemCount(1);
                 defaultGEXPanel.add(gexListBox);
                 radioPanel.add(defaultGEXPanel);
@@ -313,6 +335,10 @@ public class QTLNarrowingEntryPoint implements EntryPoint {
 
                 // Create a FileUpload widget.
                 final FileUpload gexUpload = new FileUpload();
+                gexUpload.setWidth("480");
+                // To force the width of the upload text box in Firefox
+                Element gexEe = gexUpload.getElement();
+                DOM.setAttribute(gexEe, "size", "55"); // make Firefox 1.5.0.7 happy
                 //  Disable during ALPHA release
                 //  TODO:  Reenable after ALPHA release
                 gexUpload.setEnabled(false);
@@ -342,6 +368,9 @@ public class QTLNarrowingEntryPoint implements EntryPoint {
 
                 HorizontalPanel submitPanel = new HorizontalPanel();
                 submitPanel.setSpacing(5);
+                //  Start with Button disabled.  Can't narrow qtls without
+                //  QTL list loaded.
+                narrowButton.setEnabled(false);
                 submitPanel.add(narrowButton);
                 submitPanel.add(clearButton);
 
@@ -355,8 +384,6 @@ public class QTLNarrowingEntryPoint implements EntryPoint {
                 resultsPanel.setHeading("QTL Narrowing Results");
                 resultsPanel.setButtonAlign(HorizontalAlignment.CENTER);
                 resultsPanel.setLayout(new FitLayout());
-                //resultsPanel.setSize(760, 310);
-                //resultsPanel.add(summaryTable, new MarginData(5));
                 resultsPanel.add(summaryTable);
                 resultsPanel.hide();
 
@@ -415,6 +442,7 @@ public class QTLNarrowingEntryPoint implements EntryPoint {
         // Functionality for the Upload Button
         uploadButton.addClickHandler(new ClickHandler() {
             public void onClick(ClickEvent event) {
+                uploadButton.setEnabled(false);
                 form.submit();
             }
         });
@@ -423,12 +451,24 @@ public class QTLNarrowingEntryPoint implements EntryPoint {
 
             public void handleEvent(MessageBoxEvent mbe) {
                 dialogBox.close();
-                uploadButton.setEnabled(true);
+
                 //  Disable during ALPHA release
                 //  TODO:  Reenable after ALPHA release
                 gexUploadButton.setEnabled(false);
                 //gexUploadButton.setEnabled(true);
-                narrowButton.setEnabled(true);
+
+                //  If there are rows in the QTL List Table, you can now
+                //  narrow results, but you can no longer upload...
+                EditorGrid qtlTable = (EditorGrid)qtlPanel.getWidget(0);
+                ListStore<UIQTL> qtlList =
+                                (ListStore<UIQTL>)qtlTable.getStore();
+                if (qtlList.getCount() < 1) {
+                    uploadButton.setEnabled(true);
+                    narrowButton.setEnabled(false);
+                } else {
+                    uploadButton.setEnabled(false);
+                    narrowButton.setEnabled(true);
+                }
             }
         };
 
@@ -506,8 +546,8 @@ public class QTLNarrowingEntryPoint implements EntryPoint {
                             String qtlid = result[0];
                             String phenotype = result[1];
                             String species = result[2];
-                            String hrstrain = result[3];
-                            String lrstrain = result[4];
+                            String hrstrain = result[3].trim();
+                            String lrstrain = result[4].trim();
                             String chr = result[5];
                             Integer start = new Integer(result[6]);
                             Integer end = new Integer(result[7]);
@@ -518,7 +558,12 @@ public class QTLNarrowingEntryPoint implements EntryPoint {
                             //  and end...
                             qtlList.add(qtl);
                         }
-                        uploadButton.setEnabled(true);
+                        //  We have data in our table from upload, we can't
+                        //  upload another file until cleared
+                        uploadButton.setEnabled(false);
+                        //  Now that the table is loaded, we can now narrow
+                        //  QTLs.
+                        narrowButton.setEnabled(true);
                     }
                 });
             }
@@ -561,7 +606,6 @@ public class QTLNarrowingEntryPoint implements EntryPoint {
             public void onSuccess(Map<String, List<ReturnRegion>> results) {
                 System.out.println("IN SUCCESS CASE");
 
-                //Grid summaryTable = initResultTable();
                 Grid summaryTable = (Grid)resultsPanel.getWidget(0);
                 ListStore<QTLResult> summaryList =
                         (ListStore<QTLResult>) summaryTable.getStore();
@@ -631,7 +675,7 @@ public class QTLNarrowingEntryPoint implements EntryPoint {
                     dialogBox = MessageBox.alert("QTL Narrowing",
                             textForMessage, alertListener);
                     dialogBox.show();
-                    narrowButton.setEnabled(true);
+                    //narrowButton.setEnabled(true);
                 } else {
                     System.out.println("finished adding rows to summaryList");
                     processingDialog.close();
@@ -713,9 +757,14 @@ public class QTLNarrowingEntryPoint implements EntryPoint {
                     doGEX = false;
                     if (gexRadio0.getValue() || gexRadio1.getValue()) {
                         doGEX = true;
+                        if (gexRadio0.getValue()) {
+                            int idx = gexListBox.getSelectedIndex();
+                            String value = gexListBox.getValue(idx);
+                            defaultGEXExp = value;
+                        }
                     }
                     System.out.println("Calling narrowQTLs");
-                    qtlService.narrowQTLs((List<List>) qtls, doGEX,
+                    qtlService.narrowQTLs((List<List>) qtls, doGEX, defaultGEXExp,
                             narrowingCallback);
 
                 }
@@ -923,7 +972,76 @@ public class QTLNarrowingEntryPoint implements EntryPoint {
 
         // Now create our Grid
         ListStore<UIQTL> qtlList = new ListStore<UIQTL>();
-        //employeeList.add(TestData.getEmployees());
+        //  Create a custom sorter to deal with special sorter for Chromosome.
+        qtlList.setStoreSorter(new StoreSorter<UIQTL>() {
+
+            @Override
+            public int compare(Store store, UIQTL q1, UIQTL q2, String property) {
+                //  For now we'll have default order be the order of the user
+                //  uploaded file, not chr.
+                //if (property == null || property.equals("chr")) {
+                if (property.equals("chr")) {
+                    return sortChr(q1, q2);
+                }
+
+                return super.compare(store, q1, q2, property);
+            }
+
+            private int returnInt(String num) {
+                String[] vals = num.split(",");
+                String newNum = "";
+                for (String s : vals) {
+                    newNum += s;
+                }
+                return Integer.parseInt(newNum);
+            }
+
+            private int sortChr(UIQTL q1, UIQTL q2) {
+
+                String chr1 = q1.getChr();
+                String chr2 = q2.getChr();
+                int chr1Idx = chromosomeLookup.get(chr1);
+                int chr2Idx = chromosomeLookup.get(chr2);
+
+                if (chr1Idx < chr2Idx) {
+                    return -1;
+                } else if (chr1Idx > chr2Idx) {
+                    return 1;
+                } else if (chr1Idx == chr2Idx) {
+                    //  If the chromosomes are the same, sort on the range
+                    return sortRange(q1, q2);
+                }
+                return 0;
+            }
+
+            private int sortRange(UIQTL q1, UIQTL q2) {
+
+                Integer start1 = q1.getQtlstart();
+                Integer start2 = q2.getQtlstart();
+                Integer end1 = q1.getQtlend();
+                Integer end2 = q2.getQtlend();
+                int s1 = start1.intValue();
+                int e1 = end1.intValue();
+                int s2 = start2.intValue();
+                int e2 = end2.intValue();
+                if (s1 < s2) {
+                    return -1;
+                } else if (s1 > s2) {
+                    return 1;
+                } else if (s1 == s2) {
+                    //  If the starts are the same, see which one has a
+                    //  smaller end.
+                    if (e1 < e2) {
+                        return -1;
+                    } else if (e1 > e2) {
+                        return 1;
+                    }
+                }
+                return 0;
+            }
+
+        });
+
         ColumnModel cm = new ColumnModel(configs);
 
         final EditorGrid<UIQTL> grid = new EditorGrid<UIQTL>(qtlList, cm);
@@ -949,6 +1067,22 @@ public class QTLNarrowingEntryPoint implements EntryPoint {
         column.setId("range");
         column.setHeader("BP Range");
         column.setWidth(150);
+        column.setRenderer(new GridCellRenderer<QTLResult>() {
+
+            @Override
+            public Object render(QTLResult model, String property,
+                    ColumnData config, int rowIndex, int colIndex,
+                    ListStore<QTLResult> store, Grid<QTLResult> grid) {
+                String chr = (String) model.getChr();
+                String range = (String) model.getRange();
+                String ucsc_link = QTLNarrowingEntryPoint.UCSC_GENOME_BROWSER.replaceFirst("##CHR##", chr);
+                range = range.replaceAll(",",QTLNarrowingEntryPoint.HTML_COMMA);
+                ucsc_link = ucsc_link.replaceFirst("##RANGE##",range);
+
+                String html = "<a href='" + ucsc_link + "' target='_NEW'>" + model.getRange() + "</a>";
+                return html;
+            }
+        });
         configs.add(column);
 
         //  Set up number formatter for later use.
@@ -1018,8 +1152,10 @@ public class QTLNarrowingEntryPoint implements EntryPoint {
         //  Fifth Column is the Number Genes
         column = new ColumnConfig();
         column.setId("numgenes");
-        column.setHeader("# Genes");
+        //column.setHeader("# Genes");
+        column.setHeader("<span qtitle='# Genes' qtip='Click cell in this column<br>for list of Genes and Expression info.'> # Genes <img src='info.png' alt='info'></span>");
         column.setWidth(100);
+
         //column.setRenderer(formatInt);
         column.setRenderer(new GridCellRenderer<QTLResult>() {
 
@@ -1039,7 +1175,76 @@ public class QTLNarrowingEntryPoint implements EntryPoint {
 
         // Now create our Grid
         ListStore<QTLResult> qtlList = new ListStore<QTLResult>();
-        //employeeList.add(TestData.getEmployees());
+        //  Create a custom sorter to deal with NaN values in the case of the
+        //  3 double columns, and a special sorter for Chromosome.
+        qtlList.setStoreSorter(new StoreSorter<QTLResult>() {
+
+            @Override
+            public int compare(Store store, QTLResult q1, QTLResult q2, String property) {
+                if (property == null || property.equals("chr")) {
+                    return sortChr(q1, q2);
+                } else if (property.equals("range")) {
+                    return sortRange(q1, q2);
+                }
+
+                return super.compare(store, q1, q2, property);
+            }
+
+            private int returnInt(String num) {
+                String[] vals = num.split(",");
+                String newNum = "";
+                for (String s : vals) {
+                    newNum += s;
+                }
+                return Integer.parseInt(newNum);
+            }
+
+            private int sortChr(QTLResult q1, QTLResult q2) {
+
+                String chr1 = q1.getChr();
+                String chr2 = q2.getChr();
+                int chr1Idx = chromosomeLookup.get(chr1);
+                int chr2Idx = chromosomeLookup.get(chr2);
+
+                if (chr1Idx < chr2Idx) {
+                    return -1;
+                } else if (chr1Idx > chr2Idx) {
+                    return 1;
+                } else if (chr1Idx == chr2Idx) {
+                    //  If the chromosomes are the same, sort on the range
+                    return sortRange(q1, q2);
+                }
+                return 0;
+            }
+
+            private int sortRange(QTLResult q1, QTLResult q2) {
+
+                String range1 = q1.getRange();
+                String range2 = q2.getRange();
+                String[] r1Tokens = range1.split("-");
+                String[] r2Tokens = range2.split("-");
+                int s1 = returnInt(r1Tokens[0]);
+                int e1 = returnInt(r1Tokens[1]);
+                int s2 = returnInt(r2Tokens[0]);
+                int e2 = returnInt(r2Tokens[1]);
+                if (s1 < s2) {
+                    return -1;
+                } else if (s1 > s2) {
+                    return 1;
+                } else if (s1 == s2) {
+                    //  If the starts are the same, see which one has a
+                    //  smaller end.
+                    if (e1 < e2) {
+                        return -1;
+                    } else if (e1 > e2) {
+                        return 1;
+                    }
+                }
+                return 0;
+            }
+
+        });
+
         ColumnModel cm = new ColumnModel(configs);
 
         final Grid<QTLResult> grid = new Grid<QTLResult>(qtlList, cm);
@@ -1173,7 +1378,10 @@ public class QTLNarrowingEntryPoint implements EntryPoint {
                 double val = (Double) model.get(property);
                 String result = "";
                 if (Double.isNaN(val)) {
-                    result = "NA";
+                    //result = "NA";
+                    result = "";
+                    //result = meanFmt.format(0.0);
+
                 }
                 else {
                     result = meanFmt.format(val);
@@ -1194,7 +1402,9 @@ public class QTLNarrowingEntryPoint implements EntryPoint {
                     result = "< 0.0001";
                 }
                 else if (Double.isNaN(val)) {
-                    result = "NA";
+                    //result = "NA";
+                    result = "";
+                    //result = pvalFmt.format(0.0);
                 }
                 else {
                     result = pvalFmt.format(val);
@@ -1205,7 +1415,8 @@ public class QTLNarrowingEntryPoint implements EntryPoint {
         };
         column = new ColumnConfig();
         column.setId("numsnps");
-        column.setHeader("# SNPs in Gene");
+        //column.setHeader("# SNPs in Gene");
+        column.setHeader("<span qtitle='# SNPs' qtip='Click cell in this column<br>for list of SNPs in gene.'> # SNPs <img src='info.png'></span>");
         column.setWidth(100);
         //column.setRenderer(formatInt);
         column.setRenderer(new GridCellRenderer<GeneResult>() {
@@ -1250,9 +1461,43 @@ public class QTLNarrowingEntryPoint implements EntryPoint {
             configs.add(column);
         }
 
+        //  Create our Store for the Grid data
+        ListStore<GeneResult> geneList = new ListStore<GeneResult>();
+        //  Create a custom sorter to deal with NaN values in the case of the
+        //  3 double columns.
+        geneList.setStoreSorter(new StoreSorter<GeneResult>() {
+
+            @Override
+            public int compare(Store store, GeneResult g1, GeneResult g2, String property) {
+                //boolean m1Folder = m1 instanceof GeneResult;
+                //boolean m2Folder = m2 instanceof GeneResult;
+
+                if (property != null && (property.equals("hrmean") ||
+                        property.equals("lrmean") ||
+                        property.equals("pvalue"))) {
+                    if (((Double)g1.get(property)).isNaN() &&
+                            !((Double) g2.get(property)).isNaN()) {
+                        return 1;
+                    } else if (!((Double) g1.get(property)).isNaN() &&
+                            ((Double)g2.get(property)).isNaN()) {
+                        return -1;
+                    } else if (((Double)g1.get(property)).isNaN() &&
+                            ((Double) g2.get(property)).isNaN()) {
+                        return 0;
+                    }
+                }
+                /*
+                if (m1Folder && !m2Folder) {
+                    return -1;
+                } else if (!m1Folder && m2Folder) {
+                    return 1;
+                }*/
+
+                return super.compare(store, g1, g2, property);
+            }
+        });
 
         // Now Populate the rows of our store
-        ListStore<GeneResult> geneList = new ListStore<GeneResult>();
         for (Gene gene : genes) {
             String mgiId = gene.getMgiId();
             String symbol = "";
@@ -1289,6 +1534,7 @@ public class QTLNarrowingEntryPoint implements EntryPoint {
         //grid.setAutoExpandColumn("name");
         grid.setBorders(true);
         grid.setStripeRows(true);
+        new QuickTip(grid);
 
         grid.addListener(Events.CellClick, new Listener<GridEvent>() {
 
@@ -1327,7 +1573,7 @@ public class QTLNarrowingEntryPoint implements EntryPoint {
                             //  For some reason, results were not showing in
                             //  grid with BorderLayout!
                             d.setLayout(new FitLayout());
-                            d.setSize(550, 300);
+                            d.setSize(650, 300);
                             d.add(snpGrid);
                             d.show();
                         } catch (Throwable ex) {
@@ -1393,14 +1639,20 @@ public class QTLNarrowingEntryPoint implements EntryPoint {
         configs.add(column);
 
         column = new ColumnConfig();
+        column.setId("rsnumber");
+        column.setHeader("RS Number");
+        column.setWidth(100);
+        configs.add(column);
+
+        column = new ColumnConfig();
         column.setId("snpid");
-        column.setHeader("SNP ID");
+        column.setHeader("Other ID");
         column.setWidth(100);
         configs.add(column);
 
         column = new ColumnConfig();
         column.setId("idsource");
-        column.setHeader("SNP ID Source");
+        column.setHeader("Source of ID");
         column.setWidth(100);
         configs.add(column);
 
@@ -1413,6 +1665,7 @@ public class QTLNarrowingEntryPoint implements EntryPoint {
         // Now Populate the rows of our store
         ListStore<SnpResult> snpList = new ListStore<SnpResult>();
         for (SNP snp : snps) {
+            String rsNumber = snp.getRsNumber();
             String snpId = snp.getSnpId();
             String idSource = snp.getSource();
             Integer cgdSnpId = snp.getCgdSnpId();
@@ -1425,7 +1678,7 @@ public class QTLNarrowingEntryPoint implements EntryPoint {
                 for (Integer i:annotations) {
                     String annotation = snpAnnotLookup.get(i);
 
-                    SnpResult snpResult = new SnpResult(snpId, idSource,
+                    SnpResult snpResult = new SnpResult(rsNumber,snpId, idSource,
                             cgdSnpId, position.intValue(), annotation,
                             hrBase, lrBase);
                     //  add to liststore
@@ -1434,7 +1687,7 @@ public class QTLNarrowingEntryPoint implements EntryPoint {
             }
             else {
 
-                SnpResult snpResult = new SnpResult(snpId, idSource, 
+                SnpResult snpResult = new SnpResult(rsNumber, snpId, idSource,
                         cgdSnpId, position.intValue(), "", hrBase, lrBase);
                 //  add to liststore
                 snpList.add(snpResult);
@@ -1456,29 +1709,70 @@ public class QTLNarrowingEntryPoint implements EntryPoint {
         return grid;
     }
 
+
     private void clear() {
-        this.mgiTextBox.setText("");
         //  TODO: Turn off until mgi phenotype searching fixed.
+        //this.mgiTextBox.setText("");
         //this.mgiButton.setEnabled(true);
-        this.uploadButton.setEnabled(true);
         FileUpload upload = (FileUpload) this.uploadPanel.getWidget(1);
         this.uploadPanel.remove(upload);
         upload = new FileUpload();
+        upload.setWidth("505");
+        // To force the width of the upload text box in Firefox
+        Element ee = upload.getElement();
+        DOM.setAttribute(ee, "size", "55"); // make Firefox 1.5.0.7 happy
         upload.setName("uploadQTLFile");
         this.uploadPanel.insert(upload, 1);
+        this.uploadButton.setEnabled(true);
 
-        EditorGrid qtlTable = (EditorGrid) qtlPanel.getWidget(0);
-        qtlPanel.remove(qtlTable);
-        qtlTable = initEditableQTLTable();
-        qtlPanel.add(qtlTable);
+        EditorGrid qtlTable = (EditorGrid) this.qtlPanel.getWidget(0);
+        ListStore<UIQTL> qtlList = (ListStore<UIQTL>)qtlTable.getStore();
+        qtlList.removeAll();
+
         gexRadio0.setValue(true);
         gexRadio1.setValue(false);
         gexRadio2.setValue(false);
         gexUploadButton.setEnabled(false);  // should be false when radio false
-        narrowButton.setEnabled(true);
+        doGEX = false;
+        defaultGEXExp = "lung";
+        narrowButton.setEnabled(false);
         clearButton.setEnabled(true);
+
         resultsPanel.hide();
-        resultsPanel.removeAll();
+        Grid summaryTable = (Grid)resultsPanel.getWidget(0);
+        ListStore<QTLResult> summaryList =
+                        (ListStore<QTLResult>) summaryTable.getStore();
+        summaryList.removeAll();
+        if (this.resultMap != null) {
+            this.resultMap = null;
+            //  Now we must clear the data on the server side if analysis has been
+            //  run
+            qtlService.clearAnalysis(new AsyncCallback<Boolean>() {
+
+                public void onFailure(Throwable caught) {
+                    System.out.println("IN FAIL CASE GET CLEAR ANALYSIS");
+                    // Show the RPC error message to the user
+                    String textForMessage = caught.getMessage();
+                    dialogBox = MessageBox.alert("QTL Narrowing",
+                            textForMessage,
+                            new Listener<MessageBoxEvent>() {
+
+                                public void handleEvent(MessageBoxEvent mbe) {
+                                    dialogBox.close();
+                                }
+                            });
+
+
+                    dialogBox.show();
+                }
+
+                public void onSuccess(Boolean result) {
+                    System.out.println("IN SUCCESS CASE CLEAR ANALYSIS");
+                    System.out.println("Was there anything to clear? " + result.toString());
+
+                }
+            });
+        }
 
     }
 }
@@ -1607,12 +1901,13 @@ class GeneResult extends BaseModel {
 class SnpResult extends BaseModel {
     public SnpResult() {
     }
-    public SnpResult(String snpid, String idsource, int cgdSnpId, int position,
+    public SnpResult(String rsNumber, String snpid, String idsource, int cgdSnpId, int position,
             String annotation, char HRBase, char LRBase) {
         set("position", position);
         set("cgdsnpid", cgdSnpId);
         set("hrbase", HRBase);
         set("lrbase", LRBase);
+        set("rsnumber",rsNumber);
         set("snpid",snpid);
         set("idsource", idsource);
         set("annotation", annotation);
@@ -1632,6 +1927,9 @@ class SnpResult extends BaseModel {
     public char getLrbase() {
         return (Character)get("Lrbase");
     }
+    public String getRsnumber() {
+        return (String)get("rsnumber");
+    }
     public String getSnpid() {
         return (String)get("snpid");
     }
@@ -1642,3 +1940,4 @@ class SnpResult extends BaseModel {
         return (String)get("annotation");
     }
 }
+
