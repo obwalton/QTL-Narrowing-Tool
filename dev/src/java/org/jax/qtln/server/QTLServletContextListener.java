@@ -53,6 +53,10 @@ public class QTLServletContextListener implements ServletContextListener {
     //  TODO: this information should be configurable via a properties file
     public static final String LUNG_RMA = "/Users/dow/Documents/workspace/QTLNarrowing/data/GEX/Lung/lung_rma.dat";
     public static final String LUNG_DESIGN = "/Users/dow/Documents/workspace/QTLNarrowing/data/GEX/Lung/lung_design.txt";
+    public static final String LIVER_RMA = "/Users/dow/Documents/workspace/QTLNarrowing/data/GEX/Liver/liver_rma.dat";
+    public static final String LIVER_DESIGN = "/Users/dow/Documents/workspace/QTLNarrowing/data/GEX/Liver/liver_design.txt";
+    public static final String LIVER_LF_DESIGN = "/Users/dow/Documents/workspace/QTLNarrowing/data/GEX/Liver/liver_lf_design.txt";
+    public static final String LIVER_HF_DESIGN = "/Users/dow/Documents/workspace/QTLNarrowing/data/GEX/Liver/liver_hf_design.txt";
     public static final String MGI_FTP_ADDR = "ftp.informatics.jax.org";
     public static final String MGI_REPORTS_DIR = "pub/reports";
     public static final String MGI_AFFY_430A_2_0_FILE = "Affy_430A_2.0_mgi.rpt";
@@ -74,8 +78,12 @@ public class QTLServletContextListener implements ServletContextListener {
     // probes  -> List of probe ids
     // intensities -> matrix rows/columns = probes/samples
     private Map lungExpIntensities;
+    private Map liverExpIntensities;
     // Sample Name -> [Strains...]
     private Map<String, List<String>> lungExpStrains;
+    private Map<String, List<String>> liverExpStrains;
+    private Map<String, List<String>> liverLowFatExpStrains;
+    private Map<String, List<String>> liverHighFatExpStrains;
 
     
     public void contextInitialized(ServletContextEvent event) {
@@ -129,6 +137,7 @@ public class QTLServletContextListener implements ServletContextListener {
             initProbeSetLookup(sc);
             sc.setAttribute("PROBE_INIT_STATUS", "SUCCESS");
             sc.setAttribute("probeLookup", this.probeLookup);
+            sc.log("MGI LOOKUP CONTAINS: " + this.mgiLookup.size() + " mappings");
             sc.setAttribute("mgiLookup", this.mgiLookup);
         } catch (ServletException se) {
             sc.log(se.getMessage());
@@ -204,72 +213,86 @@ public class QTLServletContextListener implements ServletContextListener {
     {
         this.probeLookup = new HashMap<String, List<String>>();
         this.mgiLookup = new HashMap<String, Map<String, String>>();
-        String tmp_rep_file = "report_formatted.tmp";
-
+        sc.log("Open FTP Connection to MGI");
         FTPClient ftp = new FTPClient();
         try {
-            int reply;
-            ftp.connect(MGI_FTP_ADDR);
+            String[] reportNames = new String[2];
+            //InputStream[] inStreams = new InputStream[3];  //If we add 3rd affy
+            reportNames[1] = MGI_AFFY_430A_2_0_FILE;
+            reportNames[0] = MGI_AFFY_V1_0_FILE;
+            //inStreams[2] = ftp.retrieveFileStream(MGI_AFFY_U74_FILE);
+            sc.log("iterate through files...");
+            for (String filename : reportNames) {
+                ftp = new FTPClient();
+                int reply;
+                sc.log("Connecting...");
+                ftp.connect(MGI_FTP_ADDR);
 
-            // After connection attempt, you should check the reply code to verify
-            // success.
-            reply = ftp.getReplyCode();
+                // After connection attempt, you should check the reply code to verify
+                // success.
+                reply = ftp.getReplyCode();
+                sc.log("Reply code = " + reply);
 
-            if (!FTPReply.isPositiveCompletion(reply)) {
-                ftp.disconnect();
-                System.err.println("FTP server refused connection.");
-                throw new UnavailableException("Problem connecting to MGI server! ");
+                if (!FTPReply.isPositiveCompletion(reply)) {
+                    ftp.disconnect();
+                    sc.log("FTP server refused connection.");
+                    throw new UnavailableException("Problem connecting to MGI server! ");
+                }
+                //  TODO: replace this with a "QTL Narrowing" specific mail addr
+                sc.log("Logging in as anonymous...");
+                ftp.login("anonymous", "cbr-help@jax.org");
+                ftp.cwd(MGI_REPORTS_DIR);
+                sc.log("Reading " + filename + " from MGI Report server");
+                InputStream inStream = ftp.retrieveFileStream(filename);
+
+                BufferedReader bufferedReader =
+                        new BufferedReader(new InputStreamReader(inStream));
+                //File has a 5 line header, remove it...
+                int head_count = 0;
+                String line;
+                // probeset_id = col 0
+                // seq id = col 1
+                // mgi id = col 2
+                // symbol = col 3
+                // name   = col 4
+                sc.log("Start reading Probe mapping from MGI...");
+                while ((line = bufferedReader.readLine()) != null) {
+                    if (head_count < (MGI_PROBE_FILE_HEADER_SIZE - 1)) {
+                        ++head_count;
+                        continue;
+                    }
+                    String[] tokens = line.split("\t");
+                    // Skip probes that don't have our 5 required columns
+                    if (tokens.length < 5) {
+                        continue;
+                    }
+                    // Add probe to lookup by MGI Accession ID
+                    // Because 1 gene may be associated with multiple probes,
+                    // add it as a list of probes.
+                    List<String> probes = new ArrayList<String>();
+                    if (this.probeLookup.containsKey(tokens[2])) {
+                        probes = this.probeLookup.get(tokens[2]);
+                    }
+                    probes.add(tokens[0]);
+                    this.probeLookup.put(tokens[2], probes);
+                    if (!this.mgiLookup.containsKey(tokens[2])) {
+                        Map<String, String> geneMap = new HashMap<String, String>();
+                        geneMap.put("symbol", tokens[3]);
+                        geneMap.put("name", tokens[4]);
+                        this.mgiLookup.put(tokens[2], geneMap);
+                    }
+
+                }
+                sc.log("Done reading Probe mapping from MGI!");
+                bufferedReader.close();
+                inStream.close();
+                ftp.logout();
             }
-            //  TODO: replace this with a "QTL Narrowing" specific mail addr
-            ftp.login("anonymous", "cbr-help@jax.org");
-            ftp.cwd(MGI_REPORTS_DIR);
-            //InputStream inStream = ftp.retrieveFileStream(MGI_AFFY_430A_2_0_FILE);
-            //InputStream inStream = ftp.retrieveFileStream(MGI_AFFY_U74_FILE);
-            InputStream inStream = ftp.retrieveFileStream(MGI_AFFY_V1_0_FILE);
-            BufferedReader bufferedReader =
-                    new BufferedReader(new InputStreamReader(inStream));
-            //File has a 5 line header, remove it...
-            int head_count = 0;
-            String line;
-            // probeset_id = col 0
-            // seq id = col 1
-            // mgi id = col 2
-            // symbol = col 3
-            // name   = col 4
-            while ((line = bufferedReader.readLine()) != null) {
-                if (head_count < (MGI_PROBE_FILE_HEADER_SIZE -1)) {
-                    ++head_count;
-                    continue;
-                }
-                String[] tokens = line.split("\t");
-                // Skip probes that don't have our 5 required columns
-                if (tokens.length < 5)
-                    continue;
-                // Add probe to lookup by MGI Accession ID
-                // Because 1 gene may be associated with multiple probes,
-                // add it as a list of probes.
-                List<String> probes = new ArrayList<String>();
-                if (this.probeLookup.containsKey(tokens[2])) {
-                    probes = this.probeLookup.get(tokens[2]);
-                }
-                probes.add(tokens[0]);
-                this.probeLookup.put(tokens[2], probes);
-                if (! this.mgiLookup.containsKey(tokens[2])) {
-                    Map<String,String> geneMap = new HashMap<String,String>();
-                    geneMap.put("symbol", tokens[3]);
-                    geneMap.put("name", tokens[4]);
-                    this.mgiLookup.put(tokens[2], geneMap);
-                }
-
-            }
-            bufferedReader.close();
-            inStream.close();
-            ftp.logout();
 
         } catch (IOException ioe) {
             ioe.printStackTrace();
-            throw new UnavailableException("Problem getting MGI ProbeSet Mappings: " +
-                    ioe.getMessage());
+            throw new UnavailableException("Problem getting MGI ProbeSet Mappings: "
+                    + ioe.getMessage());
         } finally {
             try {
                 ftp.disconnect();
@@ -287,9 +310,17 @@ public class QTLServletContextListener implements ServletContextListener {
             sc.log("INIT: Reading RMA File");
             this.lungExpIntensities = ea.parseRMA(this.LUNG_RMA, sc);
             sc.setAttribute("lungIntensityLookup", this.lungExpIntensities);
+            this.liverExpIntensities = ea.parseRMA(this.LIVER_RMA, sc);
+            sc.setAttribute("liverIntensityLookup", this.liverExpIntensities);
             sc.log("INIT: Reading Design File");
             this.lungExpStrains = ea.parseDesign(this.LUNG_DESIGN, sc);
             sc.setAttribute("lungStrainLookup", this.lungExpStrains);
+            this.liverExpStrains = ea.parseDesign(this.LIVER_DESIGN, sc);
+            sc.setAttribute("liverStrainLookup", this.liverExpStrains);
+            this.liverLowFatExpStrains = ea.parseDesign(this.LIVER_LF_DESIGN, sc);
+            sc.setAttribute("liverLowFatStrainLookup", this.liverLowFatExpStrains);
+            this.liverHighFatExpStrains = ea.parseDesign(this.LIVER_HF_DESIGN, sc);
+            sc.setAttribute("liverHighFatStrainLookup", this.liverHighFatExpStrains);
 
         } catch (Throwable e) {
             sc.log("INIT:  FAILURE DUE TO ISSUE: ");
