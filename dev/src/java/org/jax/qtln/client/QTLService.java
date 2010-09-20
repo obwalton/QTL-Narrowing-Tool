@@ -21,9 +21,11 @@ import org.jax.qtln.regions.ReturnRegion;
 public interface QTLService extends RemoteService{
     public List<String[]> readQTLFile() throws Throwable;
     public Map<String, List<ReturnRegion>> narrowQTLs(List<List> qtls,
-            boolean doGEX)
+            boolean doGEX, String gexExp)
             throws Throwable;
     public String getNarrowingStatus() throws Throwable;
     public String[] getStrains() throws Throwable;
     public Map<Integer,String> getSnpAnnotLookup() throws Throwable;
+    public Boolean clearAnalysis() throws Throwable;
+
 }

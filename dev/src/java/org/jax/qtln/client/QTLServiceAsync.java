@@ -20,11 +20,10 @@ import org.jax.qtln.regions.ReturnRegion;
 public interface QTLServiceAsync {
     public void readQTLFile(AsyncCallback<List<String[]>> callback);
 
-    public void narrowQTLs(List<List> qtls, boolean doGEX,
+    public void narrowQTLs(List<List> qtls, boolean doGEX, String gexExp,
             AsyncCallback<Map<String, List<ReturnRegion>>> callback);
     public void getNarrowingStatus(AsyncCallback<String> callback);
     public void getStrains(AsyncCallback<String[]> callback);
     public void getSnpAnnotLookup(AsyncCallback<Map<Integer,String>> callback);
-
-
+    public void clearAnalysis(AsyncCallback<Boolean> callback);
 }
