@@ -69,7 +69,8 @@ public class SNP implements Serializable {
     }
 
     public void addSnpAnnotation(Integer annotation) {
-        this.cgdSnpAnnotations.add(annotation);
+        if (! this.cgdSnpAnnotations.contains(annotation))
+            this.cgdSnpAnnotations.add(annotation);
     }
 
     public char getHighRespondingBaseValue() {
