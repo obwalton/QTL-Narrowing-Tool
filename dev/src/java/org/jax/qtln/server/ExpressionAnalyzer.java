@@ -40,12 +40,12 @@ public class ExpressionAnalyzer {
     // samples -> List of sample names
     // probes  -> List of probe ids
     // intensities -> matrix rows/columns = probes/samples
-    private Map lungIntensityLookup;
+    private Map intensityLookup;
     private List<String> samples;
     private List<String> probes;
     private double[][] intensityMatrix;
     // Strain -> [Sample names...]
-    private Map<String, List<String>> lungStrainLookup;
+    private Map<String, List<String>> strainLookup;
 
     /**
      * This constructor is used for the case where the supporting lookups are
@@ -57,25 +57,25 @@ public class ExpressionAnalyzer {
 
     public ExpressionAnalyzer (Map<String, List<String>> probeSetLookup,
                 Map<String,Map<String,String>> mgiLookup,
-                Map lungIntensityLookup,
-                Map<String, List<String>> lungStrainLookup) {
+                Map intensityLookup,
+                Map<String, List<String>> strainLookup) {
         this.probeSetLookup = probeSetLookup;
         this.mgiLookup = mgiLookup;
-        this.lungIntensityLookup = lungIntensityLookup;
-        this.probes = (List<String>)this.lungIntensityLookup.get("probes");
-        this.samples = (List<String>)this.lungIntensityLookup.get("samples");
+        this.intensityLookup = intensityLookup;
+        this.probes = (List<String>)this.intensityLookup.get("probes");
+        this.samples = (List<String>)this.intensityLookup.get("samples");
         this.intensityMatrix =
-                (double[][])this.lungIntensityLookup.get("intensities");
-        this.lungStrainLookup = lungStrainLookup;
+                (double[][])this.intensityLookup.get("intensities");
+        this.strainLookup = strainLookup;
     }
 
     public Map parseRMA(String rmaFileName, ServletContext sc)
             throws IOException, FileNotFoundException
     {
-        HashMap lungIntensities = new HashMap();
+        HashMap intensities = new HashMap();
         File rmaFile = new File(rmaFileName);
         if (!rmaFile.exists()) {
-            throw new FileNotFoundException("Cannot find Lung RMA file.  " +
+            throw new FileNotFoundException("Cannot find RMA file.  " +
                     "File does not exist: " + rmaFile);
         }
 
@@ -138,11 +138,11 @@ public class ExpressionAnalyzer {
             }
         }
 
-        lungIntensities.put("samples", samples);
-        lungIntensities.put("probes", probes);
-        lungIntensities.put("intensities", matrix);
-        this.lungIntensityLookup = lungIntensities;
-        return lungIntensities;
+        intensities.put("samples", samples);
+        intensities.put("probes", probes);
+        intensities.put("intensities", matrix);
+        this.intensityLookup = intensities;
+        return intensities;
     }
 
     public Map<String, List<String>> parseDesign(String designFileName, ServletContext sc)
@@ -153,7 +153,7 @@ public class ExpressionAnalyzer {
 
         File designFile = new File(designFileName);
         if (!designFile.exists()) {
-            throw new FileNotFoundException("Cannot find Lung Design file.  " +
+            throw new FileNotFoundException("Cannot find Design file.  " +
                     "File does not exist: " + designFile);
         }
 
@@ -225,7 +225,7 @@ public class ExpressionAnalyzer {
                 //do nothing
             }
         }
-        this.lungStrainLookup = results;
+        this.strainLookup = results;
         return results;
     }
 
@@ -279,7 +279,7 @@ public class ExpressionAnalyzer {
                     int probe_pos = this.probes.indexOf(probe);
                     for (String strain : region.getHighRespondingStrains()) {
                         List<String> strainSamples =
-                                this.lungStrainLookup.get(strain);
+                                this.strainLookup.get(strain);
                         if (strainSamples == null) {
                             System.out.println("For MGI ID: " + mgiId + " probe: " + probe + " HR strain " + strain + " there were no associated samples!");
                             System.out.println("skipping");
@@ -288,7 +288,9 @@ public class ExpressionAnalyzer {
                         for (String sample : strainSamples) {
                             int sample_pos = this.samples.indexOf(sample);
                             if (sample_pos < 0 || probe_pos < 0) {
-                                System.out.println(probe + ":" + sample + " does not have a matching intensity. Positions " + probe_pos + "x" + sample_pos);
+                                //System.out.println(probe + ":" + sample +
+                                //" does not have a matching intensity. Positions " +
+                                //probe_pos + "x" + sample_pos);
                                 continue;
                             } else {
                                 hrIntensities.add(this.intensityMatrix[probe_pos][sample_pos]);
@@ -298,7 +300,7 @@ public class ExpressionAnalyzer {
                     }
                     for (String strain : region.getLowRespondingStrains()) {
                         List<String> strainSamples =
-                                this.lungStrainLookup.get(strain);
+                                this.strainLookup.get(strain);
                         if (strainSamples == null) {
                             System.out.println("For MGI ID: " + mgiId + " probe: " + probe + " LR strain " + strain + " there were no associated samples!");
                             System.out.println("skipping");
@@ -307,7 +309,9 @@ public class ExpressionAnalyzer {
                         for (String sample : strainSamples) {
                             int sample_pos = this.samples.indexOf(sample);
                             if (sample_pos < 0 || probe_pos < 0) {
-                                System.out.println(probe + ":" + sample + " does not have a matching intensity. Positions " + probe_pos + "x" + sample_pos);
+                                //System.out.println(probe + ":" + sample +
+                                //" does not have a matching intensity. Positions " +
+                                //probe_pos + "x" + sample_pos);
                                 continue;
                             } else {
                                 lrIntensities.add(this.intensityMatrix[probe_pos][sample_pos]);
@@ -318,7 +322,7 @@ public class ExpressionAnalyzer {
                 }
                 double[] hrArray = new double[0];
                 if (hrIntensities.size() > 0) {
-                    hrArray = ArrayUtils.toArray(hrIntensities);
+                    hrArray = ArrayUtils.toArrayDouble(hrIntensities);
                     gene.setHighRespondingMeanIntensity(hrMean.getResult());
 
                 } else {
@@ -327,7 +331,7 @@ public class ExpressionAnalyzer {
                 }
                 double[] lrArray = new double[0];
                 if (lrIntensities.size() > 0) {
-                    lrArray = ArrayUtils.toArray(lrIntensities);
+                    lrArray = ArrayUtils.toArrayDouble(lrIntensities);
                     gene.setLowRespondingMeanIntensity(lrMean.getResult());
 
                 } else {
