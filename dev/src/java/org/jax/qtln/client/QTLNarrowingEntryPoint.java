@@ -10,8 +10,10 @@ import com.extjs.gxt.ui.client.data.BaseModel;
 import com.extjs.gxt.ui.client.data.ModelData;
 import com.extjs.gxt.ui.client.event.Events;
 import com.extjs.gxt.ui.client.event.GridEvent;
+import com.extjs.gxt.ui.client.event.IconButtonEvent;
 import com.extjs.gxt.ui.client.event.Listener;
 import com.extjs.gxt.ui.client.event.MessageBoxEvent;
+import com.extjs.gxt.ui.client.event.SelectionListener;
 import com.extjs.gxt.ui.client.store.ListStore;
 import com.extjs.gxt.ui.client.store.Store;
 import com.extjs.gxt.ui.client.store.StoreSorter;
@@ -19,6 +21,8 @@ import com.extjs.gxt.ui.client.widget.ContentPanel;
 import com.extjs.gxt.ui.client.widget.Dialog;
 import com.extjs.gxt.ui.client.widget.MessageBox;
 import com.extjs.gxt.ui.client.widget.ProgressBar;
+import com.extjs.gxt.ui.client.widget.Window;
+import com.extjs.gxt.ui.client.widget.button.ToolButton;
 import com.extjs.gxt.ui.client.widget.form.ComboBox.TriggerAction;
 import com.extjs.gxt.ui.client.widget.form.NumberField;
 import com.extjs.gxt.ui.client.widget.form.SimpleComboBox;
@@ -184,6 +188,22 @@ public class QTLNarrowingEntryPoint implements EntryPoint {
         prepPanel.setBodyBorder(true);
         prepPanel.setCollapsible(true);
         prepPanel.setHeading("QTL List Preperation");
+        prepPanel.getHeader().addTool(new ToolButton("x-tool-help",
+                new SelectionListener<IconButtonEvent>() {
+
+                    @Override
+                    public void componentSelected(IconButtonEvent ce) {
+                        Window w = new Window();
+                        w.setHeading("QTL Narrowing Tool Help");
+                        w.setSize(600, 400);
+                        w.setMaximizable(true);
+                        w.setToolTip("The QNT Help Page...");
+                        w.setUrl("QNT_user_manual_v0-1.htm");
+                        w.show();
+
+                    }
+                }));
+
         prepPanel.setButtonAlign(HorizontalAlignment.CENTER);
         prepPanel.setWidth(760);
         prepPanel.setLayout(new FitLayout());
@@ -287,6 +307,23 @@ public class QTLNarrowingEntryPoint implements EntryPoint {
                 qtlPanel.setButtonAlign(HorizontalAlignment.CENTER);
                 qtlPanel.setLayout(new FitLayout());
                 qtlPanel.setSize(750, 300);
+                qtlPanel.getHeader().addTool(new ToolButton("x-tool-help",
+                        new SelectionListener<IconButtonEvent>() {
+
+                            @Override
+                            public void componentSelected(IconButtonEvent ce) {
+                                Window w = new Window();
+                                w.setHeading("QTL Narrowing Tool Help");
+                                w.setSize(600, 400);
+                                w.setMaximizable(true);
+                                w.setToolTip("The QNT Help Page...");
+                                w.setUrl("QNT_user_manual_v0-1.htm#_Toc144793921");
+                                w.show();
+
+                            }
+                        }));
+
+
                 qtlPanel.add(qtlTable);
 
                 internalPrep.add(qtlPanel);
@@ -747,6 +784,11 @@ public class QTLNarrowingEntryPoint implements EntryPoint {
                             "Please wait while your QTL list is narrowed to a " +
                             "list of Genes", "Processing...");
 
+                    //  Added these two lines in hopes of controlling the width
+                    //  of the dialog... It appears to have had no effect
+                    processingDialog.setMinWidth(500);
+                    processingDialog.setMaxWidth(700);
+
                     //run this timer to periodically check the status of our
                     //narrowing process...
                     timer.scheduleRepeating(1000);
@@ -985,15 +1027,6 @@ public class QTLNarrowingEntryPoint implements EntryPoint {
                 }
 
                 return super.compare(store, q1, q2, property);
-            }
-
-            private int returnInt(String num) {
-                String[] vals = num.split(",");
-                String newNum = "";
-                for (String s : vals) {
-                    newNum += s;
-                }
-                return Integer.parseInt(newNum);
             }
 
             private int sortChr(UIQTL q1, UIQTL q2) {
