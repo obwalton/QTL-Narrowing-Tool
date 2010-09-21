@@ -235,7 +235,7 @@ public class QTLServiceImpl extends RemoteServiceServlet implements
             //  classes from the actual servlet.  I did this because the servlet
             //  class is shared by all users, and I wanted to use class
             //  attributes that were not shared.
-            this.narrowingStatus = "Initializing...";
+            this.setNarrowingStatus("Initializing...");
 
             // Take the 2D list of values and convert to a QTLSet object
             QTLSet qtlSet = new QTLSet();
@@ -248,13 +248,13 @@ public class QTLServiceImpl extends RemoteServiceServlet implements
             }
 
             //  Now get the smallest common regions in our qtlSet
-            this.narrowingStatus = "Getting smallest common regions in mouse...";
+            this.setNarrowingStatus("Getting smallest common regions in mouse...");
             System.out.println("...getting Smallest Common Regions");
             SmallestCommonRegion scr = new SmallestCommonRegion(qtlSet);
             Map<String, List<Region>> regions = scr.getRegions();
 
             //  Now do haplotype mapping
-            this.narrowingStatus = "Doing haplotype analysis of Mouse regions...";
+            this.setNarrowingStatus("Doing haplotype analysis of Mouse regions...");
             System.out.println("...doing Haplotype Analysis");
             HaplotypeAnalyzer haplotypeAnalyzer = new HaplotypeAnalyzer(
                     this.cgdSNPLookup);
@@ -265,7 +265,7 @@ public class QTLServiceImpl extends RemoteServiceServlet implements
                 e.printStackTrace();
                 throw new SMSException(e.getMessage());
             }
-            this.narrowingStatus = "SNP Annotations and GEX...";
+            this.setNarrowingStatus("SNP Annotations and GEX...");
 
             // Now get annotations to the SNPs
             // Need a CGDSnpDB object...
@@ -327,8 +327,8 @@ public class QTLServiceImpl extends RemoteServiceServlet implements
                             snps.add(snp.getValue().getBPPosition());
                         }
                         try {
-                            this.narrowingStatus = "Chr " + chr + ":" + region_key +
-                                    " get SNP detail...";
+                            this.setNarrowingStatus("Chr " + chr + ":" + region_key +
+                                    " get SNP detail...");
 
                             // Pull SNP "details" from CGD SNP DB
                             List<List> details = snpDb.getSNPDetails(
@@ -348,9 +348,8 @@ public class QTLServiceImpl extends RemoteServiceServlet implements
                         // experiment.
                         if (doGEX && region.getGenes() != null) {
                             try {
-                                this.narrowingStatus = 
-                                        "Do GEX analysis for chr " + chr + ":"
-                                        + region_key + "...";
+                                this.setNarrowingStatus("Do GEX analysis for chr " +
+                                        chr + ":" + region_key + "...");
                                 analyzeGEX.analyzeRegion((OverlappingRegion) region);
                             } catch (MathRuntimeException mre) {
                                 mre.printStackTrace();
@@ -378,11 +377,11 @@ public class QTLServiceImpl extends RemoteServiceServlet implements
             // back down to server to get more data..
             // Put our results in the session object so the user can get this
             // information back piecemeal with future calls.
-            this.narrowingStatus = "Caching results...";
+            this.setNarrowingStatus("Caching results...");
             HttpSession session = this.getSession();
             session.setAttribute("REGIONS", generic_results);
 
-            this.narrowingStatus = "Done!  Returning results...";
+            this.setNarrowingStatus("Done!  Returning results...");
             System.out.println("Done in narrowQTLs, returning results! ");
 
             return ret_results;
@@ -400,8 +399,23 @@ public class QTLServiceImpl extends RemoteServiceServlet implements
      * to poll the status of the Narrowing analysis.
      * @return  A simple status string.
      */
+    public void setNarrowingStatus(String status) {
+        HttpSession session = this.getSession();
+        session.setAttribute("NARROWING_STATUS", status);
+    }
+
+    /**
+     * This is a call back method used to give the user interface the ability
+     * to poll the status of the Narrowing analysis.
+     * @return  A simple status string.
+     */
     public String getNarrowingStatus() {
-        return this.narrowingStatus;
+        HttpSession session = this.getSession();
+        String status = (String)session.getAttribute("NARROWING_STATUS");
+        if (status != null)
+            return status;
+        else
+            return this.narrowingStatus;
     }
 
     /**
@@ -414,6 +428,7 @@ public class QTLServiceImpl extends RemoteServiceServlet implements
         HttpSession session = this.getSession();
         Object old_results = session.getAttribute("REGIONS");
 
+        session.setAttribute("NARROWING_STATUS", "Waiting...");
         if (old_results != null) {
             System.out.println("clearing regions attribute");
             session.removeAttribute("REGIONS");
