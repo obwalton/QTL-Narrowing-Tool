@@ -53,6 +53,7 @@ import com.google.gwt.user.client.ui.FileUpload;
 import com.google.gwt.user.client.ui.FormPanel;
 import com.google.gwt.user.client.ui.FormPanel.SubmitCompleteEvent;
 import com.google.gwt.user.client.ui.FormPanel.SubmitEvent;
+import com.google.gwt.user.client.ui.HTML;
 import com.google.gwt.user.client.ui.Hidden;
 import com.google.gwt.user.client.ui.HorizontalPanel;
 import com.google.gwt.user.client.ui.ListBox;
@@ -68,8 +69,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import org.jax.qtln.regions.Gene;
-import org.jax.qtln.regions.QTL;
-import org.jax.qtln.regions.QTLSet;
 import org.jax.qtln.regions.ReturnRegion;
 import org.jax.qtln.regions.SNP;
 
@@ -145,7 +144,7 @@ public class QTLNarrowingEntryPoint implements EntryPoint {
     private MessageBox dialogBox;
     private Listener alertListener;
     private final RadioButton gexRadio0 =
-            new RadioButton("gexGroup", " Gene Expression Comparison:");
+            new RadioButton("gexGroup", "Gene Expression Comparison");
     private final RadioButton gexRadio1 =
             new RadioButton("gexGroup", " Upload RMA File:");
     private final RadioButton gexRadio2 =
@@ -157,7 +156,10 @@ public class QTLNarrowingEntryPoint implements EntryPoint {
     private ContentPanel resultsPanel = new ContentPanel();
 
     private MessageBox processingDialog;
-    private Map<String, Map<String, ReturnRegion>> resultMap;
+    /** Map of Chromosomes (key=chr value), Map of regions(key=range),
+     *  Map of values (keys=range,qtls,totalSnpsInRegion,selectedSnpsInRegion
+     *                      geneCount */
+    private Map<String, Map<String, Map<String,Object>>> resultMap;
     private boolean doGEX = false;
     private String defaultGEXExp = "lung";
 
@@ -198,7 +200,7 @@ public class QTLNarrowingEntryPoint implements EntryPoint {
                         w.setSize(600, 400);
                         w.setMaximizable(true);
                         w.setToolTip("The QNT Help Page...");
-                        w.setUrl("QNT_user_manual_v0-1.htm");
+                        w.setUrl("QNT_user_manual.html#qtlprep");
                         w.show();
 
                     }
@@ -317,7 +319,7 @@ public class QTLNarrowingEntryPoint implements EntryPoint {
                                 w.setSize(600, 400);
                                 w.setMaximizable(true);
                                 w.setToolTip("The QNT Help Page...");
-                                w.setUrl("QNT_user_manual_v0-1.htm#_Toc144793921");
+                                w.setUrl("QNT_user_manual.html#qtllist");
                                 w.show();
 
                             }
@@ -328,6 +330,28 @@ public class QTLNarrowingEntryPoint implements EntryPoint {
 
                 internalPrep.add(qtlPanel);
 
+                ContentPanel gexCP = new ContentPanel();
+                gexCP.setBodyBorder(true);
+                gexCP.setHeading("Expression Analysis");
+                gexCP.getHeader().addTool(new ToolButton("x-tool-help",
+                        new SelectionListener<IconButtonEvent>() {
+
+                            @Override
+                            public void componentSelected(IconButtonEvent ce) {
+                                Window w = new Window();
+                                w.setHeading("QTL Narrowing Tool Help");
+                                w.setSize(600, 400);
+                                w.setMaximizable(true);
+                                w.setToolTip("The QNT Help Page...");
+                                w.setUrl("QNT_user_manual.html#gex");
+                                w.show();
+
+                            }
+                        }));
+
+                gexCP.setButtonAlign(HorizontalAlignment.CENTER);
+                gexCP.setWidth(750);
+                gexCP.setLayout(new FitLayout());
 
                 //  All the controls below are added as part of this onSuccess
                 //  to ensure they appear below the QTL Panel.
@@ -342,7 +366,7 @@ public class QTLNarrowingEntryPoint implements EntryPoint {
                 gexListBox.addItem("12 Strain Survey in Lung", "lung");
                 gexListBox.addItem("12 Strain Survey in Liver", "liver");
                 gexListBox.addItem("12 Strain Survey in Liver - high fat diet", "liverhf");
-                gexListBox.addItem("12 Strain Survey in Liver - low fat diet", "liverlf");
+                gexListBox.addItem("12 Strain Survey in Liver - 6% chow diet", "liverlf");
                 gexListBox.setVisibleItemCount(1);
                 defaultGEXPanel.add(gexListBox);
                 radioPanel.add(defaultGEXPanel);
@@ -400,7 +424,8 @@ public class QTLNarrowingEntryPoint implements EntryPoint {
                 noGEXPanel.setSpacing(5);
                 noGEXPanel.add(gexRadio2);
                 radioPanel.add(noGEXPanel);
-                internalPrep.add(radioPanel);
+                gexCP.add(radioPanel);
+                internalPrep.add(gexCP);
 
 
                 HorizontalPanel submitPanel = new HorizontalPanel();
@@ -418,7 +443,22 @@ public class QTLNarrowingEntryPoint implements EntryPoint {
 
                 Grid summaryTable = initResultTable();
                 resultsPanel.setBodyBorder(false);
-                resultsPanel.setHeading("QTL Narrowing Results");
+                resultsPanel.setHeading("QTL Narrowing Results: Region Table");
+                resultsPanel.getHeader().addTool(new ToolButton("x-tool-help",
+                        new SelectionListener<IconButtonEvent>() {
+
+                            @Override
+                            public void componentSelected(IconButtonEvent ce) {
+                                Window w = new Window();
+                                w.setHeading("QTL Narrowing Tool Help");
+                                w.setSize(600, 400);
+                                w.setMaximizable(true);
+                                w.setToolTip("The QNT Help Page...");
+                                w.setUrl("QNT_user_manual.html#region");
+                                w.show();
+
+                            }
+                        }));
                 resultsPanel.setButtonAlign(HorizontalAlignment.CENTER);
                 resultsPanel.setLayout(new FitLayout());
                 resultsPanel.add(summaryTable);
@@ -572,7 +612,7 @@ public class QTLNarrowingEntryPoint implements EntryPoint {
                     }
 
                     public void onSuccess(List<String[]> results) {
-                        System.out.println("IN SUCCESS CASE");
+                        System.out.println("IN SUCCESS CASE OF READ QTL FILE");
                         EditorGrid qtlTable = (EditorGrid)qtlPanel.getWidget(0);
                         ListStore<UIQTL> qtlList = 
                                 (ListStore<UIQTL>)qtlTable.getStore();
@@ -627,7 +667,7 @@ public class QTLNarrowingEntryPoint implements EntryPoint {
 
         //  This is the call back for the Narrow QTL service
         final AsyncCallback narrowingCallback = new AsyncCallback<Map<String,
-                List<ReturnRegion>>>() {
+                List<Map<String,Object>>>>() {
 
             public void onFailure(Throwable caught) {
                 processingDialog.close();
@@ -640,7 +680,7 @@ public class QTLNarrowingEntryPoint implements EntryPoint {
                 dialogBox.show();
             }
 
-            public void onSuccess(Map<String, List<ReturnRegion>> results) {
+            public void onSuccess(Map<String, List<Map<String,Object>>> results) {
                 System.out.println("IN SUCCESS CASE");
 
                 Grid summaryTable = (Grid)resultsPanel.getWidget(0);
@@ -648,7 +688,8 @@ public class QTLNarrowingEntryPoint implements EntryPoint {
                         (ListStore<QTLResult>) summaryTable.getStore();
 
                 resultMap =
-                        new HashMap<String, Map<String, ReturnRegion>>();
+                        new HashMap<String, 
+                        Map<String, Map<String,Object>>>();
                 Set<String> keys = results.keySet();
                 GWT.log("Populate summaryList");
                 // I've had problems with null pointer exceptions
@@ -660,41 +701,42 @@ public class QTLNarrowingEntryPoint implements EntryPoint {
                 int rows = 0;
                 for (String chr : keys) {
 
-                    Map chrMap = new HashMap<String, ReturnRegion>();
+                    Map chrMap = new HashMap<String, Map<String,Object>>();
                     resultMap.put(chr, chrMap);
 
-                    List<ReturnRegion> regions = results.get(chr);
-                    for (ReturnRegion region : regions) {
+                    List<Map<String,Object>> regions = results.get(chr);
+                    for (Map region : regions) {
 
-                        String range = (String) region.getRegionKey();
+                        String range = (String) region.get("range");
                         chrMap.put(range, region);
-                        QTLSet qtlSet = (QTLSet) region.getQtls();
-                        List<QTL> qtls = qtlSet.asList();
-                        Integer snps = (Integer) region.getNumberSnps();
-                        List<Gene> genes = (List<Gene>) region.getGenes();
+                        List<String> qtls = (List<String>) region.get("qtls");
+                        Integer totalSnps =
+                                (Integer)region.get("totalSnpsInRegion");
+                        Integer selectedSnps =
+                                (Integer)region.get("selectedSnpCount");
+                        Integer genes = (Integer)region.get("geneCount");
 
                         //  TODO: Validate the number of columns!!
 
                         // As noted above.  Had trouble with null
                         // pointers in adding to the "store" for the
                         // grid.
-                        try {
+                        //try {
                             QTLResult qtlResult = new QTLResult(chr,
                                     range, qtls.size(),
-                                    region.getTotalNumSNPsInRegion(),
-                                    snps, genes.size());
+                                    totalSnps.intValue(),
+                                    selectedSnps.intValue(), genes.intValue());
                             //  TODO:  Add a catch of "Not a number" for start
                             //  and end...
                             summaryList.add(qtlResult);
                             ++rows;
-                        } catch (Throwable t) {
-                            failure = true;
-                            failText = "There was a problem adding " +
-                                    chr + ":" + range + " to results " +
-                                    "table: " + t.getMessage();
-                            t.printStackTrace();
-                            break;
-                        }
+                        //} catch (Throwable t) {
+                        //    failure = true;
+                         //   failText = "There was a problem adding " +
+                          //          chr + ":" + range + " to results " +
+                         //           "table: " + t.getMessage();
+                         //   break;
+                        //}
 
                     }
                     if (failure) {
@@ -1022,7 +1064,7 @@ public class QTLNarrowingEntryPoint implements EntryPoint {
                 //  For now we'll have default order be the order of the user
                 //  uploaded file, not chr.
                 //if (property == null || property.equals("chr")) {
-                if (property.equals("chr")) {
+                if (property != null && property.equals("chr")) {
                     return sortChr(q1, q2);
                 }
 
@@ -1148,14 +1190,13 @@ public class QTLNarrowingEntryPoint implements EntryPoint {
                 String fmtVal = countFmt.format(val);
                 String chr = model.getChr();
                 String range = model.getRange();
-                Map<String, ReturnRegion> chrMap = resultMap.get(chr);
-                ReturnRegion region = chrMap.get(range);
+                Map<String, Map<String,Object>> chrMap = resultMap.get(chr);
+                Map<String,Object> region = chrMap.get(range);
 
-                QTLSet qtlSet = (QTLSet) region.getQtls();
-                List<QTL> qtls = qtlSet.asList();
+                List<String> qtls = (List<String>)region.get("qtls");
                 String qtlHtml = "<DL>";
-                for (QTL qtl : qtls) {
-                    qtlHtml += "<DD>" + qtl.getQtlID() + "</DD>";
+                for (String qtl : qtls) {
+                    qtlHtml += "<DD>" + qtl + "</DD>";
                 }
                 qtlHtml += "</DL>";
 
@@ -1300,43 +1341,84 @@ public class QTLNarrowingEntryPoint implements EntryPoint {
                 String property = configs.get(e.getColIndex()).getDataIndex();
                 if (property.equals("numgenes")) {
                     record = listStore.getAt(row);
-                    //Record record = listStore.getRecord(listStore.getAt(row));
-                    String chromosome = record.getChr();
-                    String range = record.getRange();
+                    // Make these final so they can be seen inside callback
+                    final String chromosome = record.getChr();
+                    final String range = record.getRange();
 
-                    Map<String, ReturnRegion> chrMap = resultMap.get(chromosome);
-                    ReturnRegion region = chrMap.get(range);
+                    final AsyncCallback regionCallback = new AsyncCallback<ReturnRegion>() {
 
-                    List<Gene> genes = (List<Gene>) region.getGenes();
-                    if (genes.size() != 0) {
-                        Grid geneGrid;
-                        //  Threw in try block because of problems
-                        //  occuring with suspected uncaught exceptions
-                        try {
-                            geneGrid = initGeneTable(genes, doGEX);
-                            GWT.log("Table Done!");
+                        public void onFailure(Throwable caught) {
+                            System.out.println("IN FAIL CASE getRegion");
+                            // Show the RPC error message to the user
+                            String textForMessage = caught.getMessage();
+                            dialogBox = MessageBox.alert("QTL Narrowing",
+                                    textForMessage,
+                                    new Listener<MessageBoxEvent>() {
 
-                            // Create a Dialog object
-                            Dialog d = new Dialog();
-                            d.setHideOnButtonClick(true);
-                            d.setButtons(Dialog.CLOSE);
-                            d.setBodyBorder(false);
-                            d.setHeading("Genes for Chromosome " + chromosome +
-                                    " range " + range);
-                            d.setButtonAlign(HorizontalAlignment.CENTER);
-                            //  For some reason, results were not showing in
-                            //  grid with BorderLayout!
-                            d.setLayout(new FitLayout());
-                            if (doGEX)
-                                d.setSize(750, 300);
-                            else
-                                d.setSize(450,300);
-                            d.add(geneGrid);
-                            d.show();
-                        } catch (Throwable ex) {
-                            GWT.log(ex.getMessage(), ex);
+                                        public void handleEvent(MessageBoxEvent mbe) {
+                                            dialogBox.close();
+                                        }
+                                    });
+
+
+                            dialogBox.show();
                         }
-                    }
+
+                        public void onSuccess(ReturnRegion region) {
+                            System.out.println("IN SUCCESS CASE GET REGION");
+                            List<Gene> genes = (List<Gene>) region.getGenes();
+                            if (genes.size() != 0) {
+                                Grid geneGrid;
+                                //  Threw in try block because of problems
+                                //  occuring with suspected uncaught exceptions
+                                try {
+                                    geneGrid = initGeneTable(genes, doGEX);
+                                    GWT.log("Table Done!");
+
+                                    // Create a Dialog object
+                                    Dialog d = new Dialog();
+                                    d.setHideOnButtonClick(true);
+                                    d.setButtons(Dialog.CLOSE);
+                                    d.setBodyBorder(false);
+                                    d.setHeading("QTL Narrowing Results: Genes for Chromosome " + chromosome
+                                            + " range " + range);
+                                    d.getHeader().addTool(new ToolButton("x-tool-help",
+                                            new SelectionListener<IconButtonEvent>() {
+
+                                                @Override
+                                                public void componentSelected(IconButtonEvent ce) {
+                                                    Window w = new Window();
+                                                    w.setHeading("QTL Narrowing Tool Help");
+                                                    w.setSize(600, 400);
+                                                    w.setMaximizable(true);
+                                                    w.setToolTip("The QNT Help Page...");
+                                                    w.setUrl("QNT_user_manual.html#gene");
+                                                    w.show();
+
+                                                }
+                                            }));
+                                    d.setButtonAlign(HorizontalAlignment.CENTER);
+                                    //  For some reason, results were not showing in
+                                    //  grid with BorderLayout!
+                                    d.setLayout(new FitLayout());
+                                    if (doGEX) {
+                                        d.setSize(750, 300);
+                                    } else {
+                                        d.setSize(450, 300);
+                                    }
+                                    d.add(geneGrid);
+                                    d.show();
+                                } catch (Throwable ex) {
+                                    GWT.log(ex.getMessage(), ex);
+                                }
+                            }
+
+                        }
+                    };
+
+                    //  Fetch the region details as we need them from the server
+                    qtlService.getRegion(chromosome, range, regionCallback);
+
                 }
             }
         });
@@ -1601,7 +1683,22 @@ public class QTLNarrowingEntryPoint implements EntryPoint {
                             d.setHideOnButtonClick(true);
                             d.setButtons(Dialog.CLOSE);
                             d.setBodyBorder(false);
-                            d.setHeading("SNPs within Gene " + gene.getMgiId());
+                            d.setHeading("QTL Narrowing Results: SNPs within Gene " + gene.getMgiId());
+                            d.getHeader().addTool(new ToolButton("x-tool-help",
+                                    new SelectionListener<IconButtonEvent>() {
+
+                                        @Override
+                                        public void componentSelected(IconButtonEvent ce) {
+                                            Window w = new Window();
+                                            w.setHeading("QTL Narrowing Tool Help");
+                                            w.setSize(600, 400);
+                                            w.setMaximizable(true);
+                                            w.setToolTip("The QNT Help Page...");
+                                            w.setUrl("QNT_user_manual.html#snp");
+                                            w.show();
+
+                                        }
+                                    }));
                             d.setButtonAlign(HorizontalAlignment.CENTER);
                             //  For some reason, results were not showing in
                             //  grid with BorderLayout!
