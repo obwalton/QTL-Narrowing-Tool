@@ -1,0 +1,353 @@
+<html>
+<body>
+
+<title>QTL Narrowing Tool (QNT)</title>
+
+<center><h1>QTL Narrowing Tool (QNT) &#151 User Manual (Alpha-release) </h1></center>
+
+<center>
+	<table>
+		<tr>
+			<td>The QNT Team:</td>
+			<td>Dave Walton, Timothy Stearns, Annerose Berndt</td>
+		</tr>
+		<tr>
+			<td>Requested:</td>
+			<td>June 30, 2009</td>
+		</tr>
+		<tr>
+			<td>Last Updated:</td>
+			<td>October 1, 2010</td>
+		</tr>
+		<tr>
+			<td>Version:</td>
+			<td>Alpha</td>
+		</tr>
+	</table>
+</center>
+
+<h2>Purpose and Significance</h2>
+	<p>Quantitative trait loci (QTL) are regions of DNA that are closely linked to the genes that 
+	underlie a diseases-causing trait. Yet, due to the usually large size DNA regions it remains 
+	difficult to narrow the QTL and isolate the genes in a labor- and time-efficient manner. The 
+	QTL Narrowing Tool (QNT) is a web-based application that performs QTL narrowing by integrating 
+	several bioinformatics tools. Our QNT tool is intended to substitute the manual QTL narrowing 
+	process and to standardize the methodology. The significant advantage of the QNT over manual 
+	QTL narrowing is its time- and labor-efficiency due to:<br>
+		<ul>
+			<li>the utilization of a user-defined QTL list and sequence and expression database 
+			information in one standardized tool;</li>
+			<li>the automatic and gene-centered inter-species genome conversion 
+			(not available in the alpha version).</li>
+		</ul><br>
+	<b>Warning:</b> The QNT tool is primarily intended to accelerate the QTL narrowing process. The 
+	isolated genes should undergo further verification experiments with state-of-the-art laboratory 
+	techniques before they can be argued to be candidate genes.
+	</p>
+
+<h2>Overview: How does QNT work?</h2>
+	<h3>Input data by the user:</h3>
+		<ol>
+			<li>A user-defined list of QTL (mandatory). To find instructions about how to prepare 
+			the QTL list please click here.</li>
+			<li>A user defined microarray expression data set (optional). Instead of using 
+			user-defined expression microarray data (not available in the alpha version) the user 
+			has the option to choose one of the provided microarray data sets. To find information 
+			about the available microarray data please click here.</li>
+		</ol>
+	
+	<h3>The step-by-step procedures performed by QNT are:</h3>
+		<ol>
+			<li>Generation of the smallest common region(s) of the genome between overlapping QTLs 
+			within species.</li>
+			<li>Haplotype analysis for the smallest common region(s) within the mouse genome.</li>
+			<li>Inter-species genome conversions and identification of the smallest common region(s) 
+			between-species (not available in the alpha version).</li> 
+			<li>Identification of all polymorphic SNPs within the final smallest common region(s).</li> 
+			<li>Identification of all homologous genes within the final smallest common region(s) 
+			between species (not available in the alpha version).</li>
+			<li>Annotation of all polymorphic SNPs using the CGDSNPdb (Center for Genome Dynamic 
+			SNP database) annotations and association with genes.</li> 
+			<li>Association with probe set IDs using the MGI (Mouse Genome Informatics) database.</li>
+			<li>Annotation of each gene with gene expression information from the microarray data 
+			sets (only if specified).</li>
+		</ol>
+        <a name="region"></a>
+	<h3>The results provided by QNT are presented in 3 tables:</h3>
+		<ol>
+			<li><b>A Region Table.</b> This table lists the final smallest common region(s) identified by 
+			the QTL narrowing process. The information provided in the region table is: the base 
+			pair range of each region, the QTL that were narrowed, the total number of SNPs within 
+			the region, the number of polymorphic SNPs, and the identified genes. The base pair 
+			range provides a link to the UCSC (University of California at Santa Cruz) Genome 
+			Browser for the identified base pair range. The genes within each region are then the 
+			entry to the next table:</li>
+                        <a name="gene"></a>
+			<li><b>The Gene Table.</b> This table lists each gene within a narrowed region from the region 
+			table. The information provided in the region table is: the gene&#146s symbol and name, a 
+			link to the individual MGI gene detail page, and the number of polymorphic SNPs within 
+			the gene. If mircoarray data were used for the narrowing process the mean intensities 
+			of the high (quantitatively higher trait value) and low (quantitatively lower trait 
+			value) responding strains as well as the P-value of their difference are given. The 
+			polymorphic SNPs within each gene are then the entry to the next table:</li>
+                        <a name="snp"></a>
+			<li><b>The SNP Table.</b> This table lists all the polymorphic SNPs within a gene from the gene 
+			table. The information provided in the region table is: the SNP&#146s base pair position, 
+			the high (higher trait value) and low (lower trait value) responder allele, the rs 
+			number (rs numbers are taken from the CGDSNPdb), a secondary SNP ID and its source, and 
+			the SNP&#146s annotation.</li>
+		</ol>
+
+<h2>Step-by-step guidance for the use of the QNT</h2>
+	<p>The web-based interface of QNT is located <a href="http://jaxbhqtl1-prod.jax.org:8080/QTLNarrowing/">here.</a></p>
+
+	<p>To successfully use QNT, please follow the provided steps below:</p> 
+         <a name="qtlprep"></a>
+
+	<h3>Generate the input QTL list</h3>
+		<p>There are 3 option of how a QTL list can be generated:</p>
+		<ol>
+			<li>Upload a user-defined QTL list.</li>
+				<ul>
+					<li>Prepare and save the QTL list file on the local wok station of the used 
+					computer. To prepare a QTL list file follow these requirements for the custom 
+					QTL list file:
+						<ul>
+							<li>The file needs to be .txt formatted (tab-delimited).</li>
+							<li>The file should NOT include a header line.</li>
+							<li>The file should include information in the first eight columns as 
+							follows:
+								<ul>
+									<li><b>QTL ID:</b> a specific ID to identify the QTL in comparison to 
+									other QTL used in the same list: the ID is for the users purpose 
+									only and does not have to be the published QTL ID.</li>
+									<li><b>Phenotype:</b> the phenotype which was used to identify the QTL; 
+									the phenotype is for the users purpose;</li>
+									<li><b>Species:</b> the species in which the QTL was identified; for 
+									the current version you can choose Mouse;</li>
+									<li><b>High Resp Strain:</b> strain name of the strain with the 
+									quantitatively higher phenotype; a list of valid strain names 
+									is available <a href="http://jaxbhqtl1.jax.org:8080/QTLNarrowing/">here.</a></li>
+									<li><b>Low Resp Strain:</b> strain name of the strain with the 
+									quantitatively lower phenotype; a list of valid strain names 
+									is available <a href="http://jaxbhqtl1.jax.org:8080/QTLNarrowing/">here.</a></li>
+									<li><b>Chr:</b> chromosome (only numerical, for example: chromosome 1 
+									needs to be a &#147 1 &#148 not a &#147chr1&#148 or &#147Chr1&#148);</li>
+									<li><b>QTL Start:</b> start position of the QTL or 95% confidence 
+									interval (in base pairs (bp));</li>
+									<li><b>QTL End:</b> end position of the QTL or 95% confidence interval 
+									(in base pairs (pb))</li>
+								</ul>
+							</li>
+						</ul>
+					</li>	
+					<li>To upload the QTL list file:
+						<ol>
+							<li>Click the &#147Choose File&#148 button.</li>
+							<li>Browse to the directory the QTL list file is saved.</li>
+							<li>Select the QTL list file.</li>
+							<li>Click the &#147Upload&#148 button.</li>
+						</ol>
+					</li>
+				</ul>
+			<li>Search the MGI database for QTL of interest. (not available in the alpha version)
+				<ol>
+					<li>Click on the &#147Search MGI&#148 button.</li>
+					<li>Select the phenotype(s) of interest.</li>
+					<li>Upload the isolated QTL list by clicking on the &#147Upload QTL List&#148 button.</li>
+					<li>Click &#147Upload&#148 button.</li>
+				</ol>
+			</li>
+			<li>Combine option 1. and 2. (not available in the alpha version)
+				<ol>
+					<li>Follow step 1. and 2. above.</li>
+				</ol>
+			</li>	
+		</ol>
+         <a name="qtllist"></a>
+
+	<h3>Modify the input QTL list table</h3>
+		<p>Once the QTL list table is generated it can be modified in several ways to verify the 
+		correctness of the uploaded data and to modify its content. The following modifications are 
+		possible:
+			<ul>
+				<li><b>Sort:</b> By clicking on the header of each column a drop-down menu appears, from 
+				which sorting (ascending or descending) can be performed.</li>
+				<li><b>Content:</b> By clicking on the header of each column a drop-down menu appears. 
+				When &#147Columns&#148 are selected another drop-down menu will open containing all header 
+				names in the table. By checking or un-checking the box next to a column header name 
+				the visibility of this column can be changed to visible or invisible, respectively. 
+				Un-checking column header names does not delete the information in the columns.</li>
+				<li><b>Strain names:</b> The spelling of the strain names is crucial for the successful 
+				performance of QNT. Incorrectly spelled strains will appear in red font. To correct 
+				the strain name please click on the individual strain cell and select the strain of 
+				interest from the drop-down menu.</li>
+				<li><b>Scroll:</b> Please ensure that you scroll through the entire QTL list to detect 
+				possible missing data or spelling errors. In case a spelling error was missed the 
+				narrowing process will not start and a dialog box will appear with the request to 
+				reevaluate the QTL list.</li>
+			</ul>
+		</p>
+<a name="gex"></a>
+	<h3>Microarray data input</h3>
+		<p>The purpose of using microarray expression data is to provide an integrated mechanism to 
+		identify those genes that &#150 besides being isolated due to incorporation of polymorphic SNPs 
+		within the smallest QTL region(s) &#150 are differentially expressed between high and low 
+		responding strains.</p>
+
+		<p><b>Attention:</b> Current microarray experiments are only available for lung and liver tissues 
+		of selected strains (see Table 1). Cross tissue comparison have to be interpreted with care! 
+		Further laboratory evaluations are suggested.</p>
+ 
+		<p>The following options of incorporating microarray data in QNT are possible:
+			<ol>
+				<li><b>Select one of the available microarray data sets from the drop-down menu.</b>
+					<ul>
+						<li>In the provided microarray data sets the average signal intensities for 
+						each probe set within each arrays were calculated using the RMA method 
+						provided within the Affymetrix package for R using a custom (Entrez Gene) 
+						CDF file. The RMA method incorporates convolution background correction, 
+						sketch-quantile normalization, and summarization based on a multi-array 
+						model fit robustly using the median polish algorithm. (Dai, M., et al. 2005. 
+						Evolving Gene/Transcript Definitions Significantly Alter the Interpretation 
+						of GeneChip Data. Nucleic Acid Research. 33(20), e175)</li>
+						<li>An overview of the available microarray experiments are shown in the 
+						following table:</li>
+						
+						<li><b>Table 1: Available microarray experiments in QNT.</b>
+						<table>
+							<tr>
+								<td>Tissue</td>
+								<td>Age of mice (weeks)</td>
+								<td>Gender (F/M)</td>
+								<td>Diet</td>
+								<td>Strains available</td>
+							</tr>
+							<tr>
+								<td>Lung</td>
+								<td>11</td>
+								<td>F</td>
+								<td>6% Chow</td>
+								<td>C57BL/6J, SJL/J, BALB/cJ, C3H/HeJ, 129S1/SvlmJ, A/J, CE/J, 
+								PWD/PhJ, MRL/MpJ, DBA/2J, Ln/J, KK/HLJ</td>
+							</tr>
+							<tr>
+								<td>Liver</td>
+								<td>8</td>
+								<td>F and M</td>
+								<td>6% Chow and High fat</td>
+								<td>129S1/SvImJ, A/J, C57BL/6J, BALB/cJ, C3H/HeJ, CAST/EiJ, 
+								DBA/2J, I/LnJ, MRL/MpJ, NZB/BINJ, PERA/EiJ, SM/J</td>
+							</tr>
+							<tr>
+								<td>Liver &#150 High fat</td>
+								<td>8</td>
+								<td>F and M</td>
+								<td>High fat</td>
+								<td>129S1/SvImJ, A/J, C57BL/6J, BALB/cJ, C3H/HeJ, CAST/EiJ, 
+								DBA/2J, I/LnJ, MRL/MpJ, NZB/BINJ, PERA/EiJ, SM/J</td>
+							</tr>
+							<tr>
+								<td>Liver &#150 Low fat</td>
+								<td>8</td>
+								<td>F and M</td>
+								<td>6% Chow</td>
+								<td>129S1/SvImJ, A/J, C57BL/6J, BALB/cJ, C3H/HeJ, CAST/EiJ, 
+								DBA/2J, I/LnJ, MRL/MpJ, NZB/BINJ, PERA/EiJ, SM/J</td>
+							</tr>
+						</table>
+						</li>
+					<ul>
+				</li> 
+			
+				<li><b>Upload user-defined RMA file.</b> (not available in the alpha version)
+					<ul>
+						<li>Select the &#147Upload RMA File&#148 radio button.</li>
+						<li>Click &#147Choose File&#148.</li>
+						<li>Browse your local directory to the location and select the RMA file.
+							<ul>
+								<li>Requirements for the RMA file are:
+									<ul>
+										<li>The RMA file should be a text tab-delimited file.</li>
+										<li>The first column will need to be the probe ID with the 
+										remaining columns containing the intensities per array (each 
+										array is an additional column).</li>
+										<li>Before the RMA file can be uploaded the data should be 
+										normalized. Please refer to xxx for instructions.</li>
+									</ul>
+								</li>
+							</ul>
+						</li>
+						<li>Click &#147Define Exp. Design&#148 and prepare the design of your expression 
+						experiment.</li>
+					</ul>
+				</li> 
+				
+				<li><b>No inclusion of microarray data sets. Select the radio button next to &#147No Gene 
+				Expression Comparison&#148 if no microarray data should be included in the analysis.</b></li>
+			</ol>
+	
+	<h3>Narrow list of QTL </h3>
+		<p>To initiate the tool, click on the &#147Narrow QTLs&#148 button. If the tool started narrowing 
+		successfully a processing dialog box will appear, which will give the current state of the 
+		narrowing process. The dialog box is modal, and will not disappear until the analysis is 
+		done. You are still able to use your browser, but selecting another tab, or opening another 
+		window but the specific tab the analysis is running in will be blocked until the narrowing 
+		is completed.</p>
+
+		<p>The time required to narrow a QTL list depends of the number of QTLs and the overlap 
+		between QTLs.</p>
+
+		<p>If the narrowing does not start a dialog box will appear letting you know the error. 
+		Please correct the error and click &#147Narrow QTLs&#148 again.</p>
+
+		<p>You have also the option to upload a new QTL list after clearing the QTL list table by 
+		clicking the &#147Clear&#148 button.</p>
+
+<h2>Additional functionality of the QNT for future releases</h2>
+	<p>Some of the functionality of the tool is not yet implemented for the current alpha-release. 
+	We currently work on the following additions to the QNT:
+		<ul>
+			<li>Major additions:
+				<ul>
+					<li>Adding support for Strain synonyms: The user will have the option to use well 
+					known/used synonyms of strains. For example, if someone would enter"B6" we will assume 
+					the user means C57BL/6J. The user will still have the option to edit incorect spelling 
+					as currently available.</li>
+					<li>Adding phenotype search to obtain a QTL lists from MGI: In the furture the user will have
+					the option to assable a QTL list by way of searching the currently published QTL available
+					online.</li>
+					<li>Adding options to download the result files (excel or tab delimited reports): In the 
+					future the user will have the option to download all result files for further modifications
+					or analysis steps.</li>
+					<li>Add Cross Species functionality: In the future the user will be able to use evidence
+					from multiple species by integrating the functionality of cross-species conversion. </li>
+					<li>Add user provided microarray experiments and support for more micoarray platforms: 
+					In the future we will provide the opportunity to upload microarray experiments. Also, we
+					anticipate to support more than the currently available two affymetrix platforms.</li>
+					<li>Add GWAS support: We will implement the function to include genome-wide association
+					mapping results (and possibly analyses if strain survey data are provided) from the mouse.</li>
+					<li>Enhance liver/Shockley data to break out by gender as well:</li>
+					<li>Add threading to back end and perform analysis by chromosome to improve performance 
+					(meaning multiple chromosomes for one analysis could run at the same time).  This may 
+					require a bigger server but should improve performance on processing of data with many chromosomes.</li>	
+				</ul>
+			</li>
+			<li>Minor additions:
+				<ul>
+					<li>For GEX radio buttons, make &#147options&#148 only appear if the user selects that radio 
+					button:</li>
+					<li>Fix width/height/message of processing dialog.</li>
+					<li>Add an option to exclude snp annotation types from the result.</li>
+					<li>Include Gene Start and End position in the gene table.</li>
+				</ul>
+			</li>
+		</ul>
+	We would appreciate any additional suggestions to improve the efficiency and the functionality of the 
+	QNT.</p>
+
+<h2>Thank you,<br>
+The QNT Team</h2>
+
+</body>
+</html>
