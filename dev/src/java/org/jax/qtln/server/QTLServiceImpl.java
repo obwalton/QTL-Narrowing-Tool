@@ -24,6 +24,7 @@ import org.jax.qtln.client.SMSException;
 import org.jax.qtln.db.CGDSnpDB;
 import org.jax.qtln.regions.Gene;
 import org.jax.qtln.regions.OverlappingRegion;
+import org.jax.qtln.regions.QTL;
 import org.jax.qtln.regions.ReturnRegion;
 import org.jax.qtln.regions.SNP;
 
@@ -226,7 +227,7 @@ public class QTLServiceImpl extends RemoteServiceServlet implements
      *   the full results is stored in the session object.
      * @throws SMSException
      */
-    public Map<String, List<ReturnRegion>> narrowQTLs(List<List> qtls,
+    public Map<String,List<Map<String,Object>>> narrowQTLs(List<List> qtls,
             boolean doGEX, String gexExp)
             throws SMSException {
         try {
@@ -379,12 +380,40 @@ public class QTLServiceImpl extends RemoteServiceServlet implements
             // information back piecemeal with future calls.
             this.setNarrowingStatus("Caching results...");
             HttpSession session = this.getSession();
-            session.setAttribute("REGIONS", generic_results);
+            //session.setAttribute("REGIONS", generic_results);
+            session.setAttribute("REGIONS", ret_results);
+            Set<Map.Entry<String,List<ReturnRegion>>> chrs = ret_results.entrySet();
+            Map<String,List<Map<String,Object>>> results =
+                    new HashMap<String,List<Map<String,Object>>>();
+            for (Map.Entry<String,List<ReturnRegion>> chr:chrs) {
+                List<ReturnRegion> chrRegions = (List<ReturnRegion>)chr.getValue();
+                List<Map<String,Object>> chrRegionList =
+                        new ArrayList<Map<String,Object>>();
+                for (ReturnRegion region : chrRegions) {
+                    Map<String,Object> regionMap = new HashMap<String, Object>();
+                    regionMap.put("range", (String)region.getRegionKey());
+                    QTLSet regQtlSet = (QTLSet) region.getQtls();
+                    List<QTL> regQtls = regQtlSet.asList();
+                    List<String> qtlNames = new ArrayList<String>();
+                    for (QTL qtl: regQtls) {
+                        qtlNames.add(qtl.getQtlID());
+                    }
+                    regionMap.put("qtls", qtlNames);
+                    regionMap.put("totalSnpsInRegion",
+                            (Integer)region.getTotalNumSNPsInRegion());
+                    regionMap.put("selectedSnpCount",
+                            (Integer) region.getNumberSnps());
+                    List<Gene> genes = (List<Gene>) region.getGenes();
+                    regionMap.put("geneCount", genes.size());
+                    chrRegionList.add(regionMap);
+                }
+                results.put(chr.getKey(), chrRegionList);
+            }
 
             this.setNarrowingStatus("Done!  Returning results...");
             System.out.println("Done in narrowQTLs, returning results! ");
 
-            return ret_results;
+            return results;
         } catch (SMSException sms) {
             throw sms;
         } catch (Exception e) {
@@ -416,6 +445,31 @@ public class QTLServiceImpl extends RemoteServiceServlet implements
             return status;
         else
             return this.narrowingStatus;
+    }
+
+    /**
+     * Get a region by Chromosome and range.
+     *
+     * This method has been written to reduce the amount of data flowing to
+     * the client at any one time.  The data set can be very large for a single
+     * analysis and cause problems with the browser.
+     *
+     */
+    public ReturnRegion getRegion(String chromosome, String rangeKey) {
+        ReturnRegion retRegion = null;
+        HttpSession session = this.getSession();
+
+        Map<String, List<ReturnRegion>> results =
+                (Map<String, List<ReturnRegion>>)session.getAttribute("REGIONS");
+        List<ReturnRegion> regions = results.get(chromosome);
+
+        for (ReturnRegion region: regions) {
+            if (region.getRegionKey().equals(rangeKey))
+                retRegion = region;
+        }
+
+        return retRegion;
+
     }
 
     /**
