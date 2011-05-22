@@ -1,19 +1,3 @@
-/*
- * Copyright (c) 2010 The Jackson Laboratory
- * 
- * This is free software: you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or
- * (at your option) any later version.
- *
- * This software is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this software.  If not, see <http://www.gnu.org/licenses/>.
- */
 package org.jax.qtln.server;
 
 
@@ -25,6 +9,7 @@ import com.google.gwt.user.server.rpc.RemoteServiceServlet;
 import java.sql.SQLException;
 import java.text.DecimalFormat;
 import java.util.ArrayList;
+import java.util.Enumeration;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
@@ -53,13 +38,13 @@ public class QTLServiceImpl extends RemoteServiceServlet implements
 
     private String narrowingStatus = "Waiting";
 
-    //  This is temporary until I determine if we are better off with
-    //  in-memory snps or database storage for snps (memory vs. performance
-    //  trade-off
-    public static final String SNP_STORAGE = "DB";
-
     //  These are all for the database stored version of the CGD SNPS
     private String driver = "com.mysql.jdbc.Driver";
+    private static String db_protocol = "jdbc:mysql:";
+    private static String db_host = "cgd.jax.org";
+    private static String db_name = "cgdsnpdb";
+    private static String db_user = "pup";
+    private static String db_password = "puppass";
 
     //  Various Lookups that are initialized at the time the webapp is
     //  deployed (in QTLServletContextListener).  The variables are actually
@@ -125,9 +110,25 @@ public class QTLServiceImpl extends RemoteServiceServlet implements
                 (Map<String, List<String>>)context.getAttribute("liverLowFatStrainLookup");
         QTLServiceImpl.liverHighFatStrainLookup =
                 (Map<String, List<String>>)context.getAttribute("liverHighFatStrainLookup");
+        //  If any of these were not provided with user properties, we'll
+        //  use the default values instead
+        String driver = (String)context.getAttribute("db_driver");
+        if (driver != null) this.driver = driver;
+        String db_protocol = (String)context.getAttribute("db_protocol");
+        if (db_protocol != null) QTLServiceImpl.db_protocol = db_protocol;
+        String db_host = (String)context.getAttribute("db_host");
+        if (db_host != null)  QTLServiceImpl.db_host = db_host;
+        String db_name = (String)context.getAttribute("db_name");
+        if (db_name != null) QTLServiceImpl.db_name = db_name;
+        String db_user = (String)context.getAttribute("db_user");
+        if (db_user != null) QTLServiceImpl.db_user = db_user;
+        String db_password = (String)context.getAttribute("db_password");
+        if (db_password != null) QTLServiceImpl.db_password = db_password;
 
         //  Get our location function lookup
-        CGDSnpDB snpDb = new CGDSnpDB();
+        CGDSnpDB snpDb = new CGDSnpDB(QTLServiceImpl.db_host,
+                QTLServiceImpl.db_name, QTLServiceImpl.db_user,
+                QTLServiceImpl.db_password);
         try {
             if (QTLServiceImpl.snpLocFuncs == null) {
                 QTLServiceImpl.snpLocFuncs = snpDb.getSNPLocFuncList();
@@ -286,7 +287,9 @@ public class QTLServiceImpl extends RemoteServiceServlet implements
 
             // Now get annotations to the SNPs
             // Need a CGDSnpDB object...
-            CGDSnpDB snpDb = new CGDSnpDB();
+            CGDSnpDB snpDb = new CGDSnpDB(QTLServiceImpl.db_host,
+                QTLServiceImpl.db_name, QTLServiceImpl.db_user,
+                QTLServiceImpl.db_password);
 
             // This loop serves two purposes:
             // 1) use the cgd snp db to pull the annotations for snps per region

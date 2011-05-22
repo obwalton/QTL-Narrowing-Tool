@@ -66,7 +66,7 @@ public class CGDSnpDB {
     public CGDSnpDB(String dbHost, String database, String user,
             String password)
     {
-        super();
+        this();
         this.dbHost = dbHost;
         this.database = database;
         this.user = user;
