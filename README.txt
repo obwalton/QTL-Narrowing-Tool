@@ -18,7 +18,11 @@ Copyright
 Dependencies
 ------------
 Software Libraries
-gxt
+gwt 2.0.2
+gxt 2.1.1
+commons-math-2.1
+mysql-connector-java-5.1.12
+commons-net-ftp-2.0
  
 Data resources
 CGD SNP DB
