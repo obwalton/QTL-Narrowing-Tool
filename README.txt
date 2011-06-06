@@ -23,6 +23,16 @@ gxt 2.1.1
 commons-math-2.1
 mysql-connector-java-5.1.12
 commons-net-ftp-2.0
+solr 1.4.1 specific libraries:
+	dist/apache-solr-solrj-*.jar
+	dist/solrj-lib
+		commons-codec-1.3.jar
+		commons-httpclient-3.1.jar
+		commons-io-1.4.jar
+		jcl-over-slf4j-1.5.5.jar
+		slf4j-api-1.5.5.jar
+	lib/slf4j-jdk14-1.5.5.jar
+
  
 Data resources
 CGD SNP DB

@@ -1,7 +1,20 @@
 /*
- * To change this template, choose Tools | Templates
- * and open the template in the editor.
+ * Copyright (c) 2010 The Jackson Laboratory
+ * 
+ * This is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * This software is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this software.  If not, see <http://www.gnu.org/licenses/>.
  */
+
 
 package org.jax.qtln.server;
 
@@ -11,6 +24,7 @@ import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
+import java.net.MalformedURLException;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -24,6 +38,8 @@ import javax.servlet.ServletException;
 import javax.servlet.UnavailableException;
 import org.apache.commons.net.ftp.FTPClient;
 import org.apache.commons.net.ftp.FTPReply;
+import org.apache.solr.client.solrj.SolrServer;
+import org.apache.solr.client.solrj.impl.CommonsHttpSolrServer;
 
 /**
  *
@@ -130,6 +146,21 @@ public class QTLServletContextListener implements ServletContextListener {
             sc.log("NO PROPERTIES FILE FOUND, USING TEST DEFAULT VALUES");
         }
 
+        //  Set up the Solr server
+        String solrUrl = "http://localhost:8983/solr";
+        SolrServer server;
+        try {
+            server = new CommonsHttpSolrServer( solrUrl );
+            sc.log("Successfully created Solr Server!");
+            sc.setAttribute("solrServer", server);
+        } catch (MalformedURLException mue) {
+            sc.log(mue.getMessage());
+            sc.log("Failed to get solr server");
+            sc.setAttribute("SOLR_INIT_STATUS", "FAIL");
+        }
+        
+        
+        //  Set up the SNP Database
 
         boolean success = true;
         try {
