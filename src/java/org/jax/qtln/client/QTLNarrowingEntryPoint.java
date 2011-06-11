@@ -522,12 +522,47 @@ public class QTLNarrowingEntryPoint implements EntryPoint {
         });
 
 
+         // For processing the mgiButton
+        final AsyncCallback mgiSearchCallback = 
+                new AsyncCallback<List<Map<String,String>>>() {
+
+            public void onFailure(Throwable caught) {
+                 //progressDialog.hide();
+                System.out.println("IN FAIL CASE");
+                // Show the RPC error message to the user
+                String textForMessage = caught.getMessage();
+                dialogBox = MessageBox.alert("QTL Narrowing", textForMessage,
+                        alertListener);
+                dialogBox.show();
+            }
+
+            public void onSuccess(List<Map<String,String>> results) {
+                System.out.println("IN SUCCESS CASE");
+
+                String textForMessage = "";
+                
+                for (Map<String, String> result : results) {
+                    textForMessage += (String)result.get("qtlid");
+                }
+                dialogBox = MessageBox.alert("QTL Narrowing", textForMessage,
+                        alertListener);
+                dialogBox.show();
+                mgiButton.setEnabled(true);
+           }
+        };
+
         // Functionality for the MGI Button
         mgiButton.addClickHandler(new ClickHandler() {
             public void onClick(ClickEvent event) {
+                mgiButton.setEnabled(false);
                 String text = mgiTextBox.getText().trim();
+
+                System.out.println("Calling searchPhenotypesForQTLs");
+                qtlService.searchPhenotypesForQTLs(text, mgiSearchCallback);
+             
             }
         });
+        
 
         // Functionality for the Upload Button
         uploadButton.addClickHandler(new ClickHandler() {
