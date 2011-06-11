@@ -32,7 +32,8 @@ solr 1.4.1 specific libraries:
 		jcl-over-slf4j-1.5.5.jar
 		slf4j-api-1.5.5.jar
 	lib/slf4j-jdk14-1.5.5.jar
-
+   Solr data being written to the solr/data directory in this project
+   use the schema.xml file that is in solr folder with solr installation
  
 Data resources
 CGD SNP DB
