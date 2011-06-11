@@ -46,5 +46,7 @@ public interface QTLService extends RemoteService{
     public ReturnRegion getRegion(String chromosome, String rangeKey)
             throws Throwable;
     public Boolean clearAnalysis() throws Throwable;
+    public List<Map<String,String>> searchPhenotypesForQTLs(String searchString) 
+            throws Throwable;
 
 }
