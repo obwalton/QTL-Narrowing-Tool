@@ -45,4 +45,6 @@ public interface QTLServiceAsync {
             AsyncCallback<ReturnRegion> callback);
 
     public void clearAnalysis(AsyncCallback<Boolean> callback);
+    public void searchPhenotypesForQTLs(String searchString, 
+            AsyncCallback<List<Map<String,String>>> callback);
 }
