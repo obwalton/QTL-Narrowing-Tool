@@ -36,10 +36,15 @@ import javax.servlet.ServletContextEvent;
 import javax.servlet.ServletContextListener;
 import javax.servlet.ServletException;
 import javax.servlet.UnavailableException;
+import javax.xml.parsers.ParserConfigurationException;
 import org.apache.commons.net.ftp.FTPClient;
 import org.apache.commons.net.ftp.FTPReply;
 import org.apache.solr.client.solrj.SolrServer;
-import org.apache.solr.client.solrj.impl.CommonsHttpSolrServer;
+import org.apache.solr.client.solrj.embedded.EmbeddedSolrServer;
+import org.apache.solr.core.CoreContainer;
+
+import org.jax.qtln.mgisearch.LoadData;
+import org.xml.sax.SAXException;
 
 /**
  *
@@ -147,16 +152,31 @@ public class QTLServletContextListener implements ServletContextListener {
         }
 
         //  Set up the Solr server
-        String solrUrl = "http://localhost:8983/solr";
         SolrServer server;
         try {
-            server = new CommonsHttpSolrServer( solrUrl );
-            sc.log("Successfully created Solr Server!");
+            // Note that the following property could be set through JVM level arguments too
+            System.setProperty("solr.solr.home", "/Users/dave/QNT_Project/apache-solr-1.4.1/example/solr");
+            sc.log("solr.solr.home system variable set");
+            CoreContainer.Initializer initializer = new CoreContainer.Initializer();
+            sc.log("initializer created");
+            CoreContainer coreContainer = initializer.initialize();
+            sc.log("core container created");
+            server = new EmbeddedSolrServer(coreContainer, "");            //server = new CommonsHttpSolrServer( solrUrl );
+            LoadData loadMGIServer = new LoadData(server);
             sc.setAttribute("solrServer", server);
         } catch (MalformedURLException mue) {
-            sc.log(mue.getMessage());
-            sc.log("Failed to get solr server");
-            sc.setAttribute("SOLR_INIT_STATUS", "FAIL");
+            mue.printStackTrace();
+            sc.log("Failed to create server");
+        } catch (IOException ioe) {
+            ioe.printStackTrace();
+            sc.log("Problem building our embedded server");
+        } catch (ParserConfigurationException pce) {
+            pce.printStackTrace();
+        } catch (SAXException saxe) {
+            saxe.printStackTrace();
+        } catch (Exception e) {
+            sc.log("Catch all for the rest of the exceptions");
+            e.printStackTrace();
         }
         
         
@@ -175,7 +195,7 @@ public class QTLServletContextListener implements ServletContextListener {
             sc.setAttribute("SNP_INIT_STATUS", "SUCCESS");
             sc.setAttribute("snpLookup", this.cgdSNPLookup);
         }
-
+        sc.log("SNPDB INITIALIZED");
 
         try {
             initProbeSetLookup(sc);
@@ -187,7 +207,8 @@ public class QTLServletContextListener implements ServletContextListener {
             sc.log(se.getMessage());
             sc.setAttribute("PROBE_INIT_STATUS", "FAIL");
         }
-
+        sc.log("PROBELOOKUP INITIALIZED");
+        
         try {
             initDefaultExpressionLookups(sc);
             sc.setAttribute("GEX_INIT_STATUS", "SUCCESS");
@@ -195,7 +216,7 @@ public class QTLServletContextListener implements ServletContextListener {
             sc.log(se.getMessage());
             sc.setAttribute("GEX_INIT_STATUS", "FAIL");
         }
-
+        sc.log("EXPRESSION LOOKUPS INITIALIZED");
 
     }
 
@@ -267,6 +288,7 @@ public class QTLServletContextListener implements ServletContextListener {
             //inStreams[2] = ftp.retrieveFileStream(MGI_AFFY_U74_FILE);
             sc.log("iterate through files...");
             for (String filename : reportNames) {
+                sc.log("Make connection to fetch " + filename);
                 ftp = new FTPClient();
                 int reply;
                 sc.log("Connecting...");
