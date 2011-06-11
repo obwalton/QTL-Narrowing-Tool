@@ -25,7 +25,6 @@ import com.google.gwt.user.server.rpc.RemoteServiceServlet;
 import java.sql.SQLException;
 import java.text.DecimalFormat;
 import java.util.ArrayList;
-import java.util.Enumeration;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
@@ -36,9 +35,13 @@ import javax.servlet.ServletException;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpSession;
 import org.apache.commons.math.MathRuntimeException;
+import org.apache.solr.client.solrj.SolrQuery;
+import org.apache.solr.client.solrj.SolrServer;
+import org.apache.solr.client.solrj.response.QueryResponse;
 import org.jax.qtln.client.QTLService;
 import org.jax.qtln.client.SMSException;
 import org.jax.qtln.db.CGDSnpDB;
+import org.jax.qtln.mgisearch.MGIQTL;
 import org.jax.qtln.regions.Gene;
 import org.jax.qtln.regions.OverlappingRegion;
 import org.jax.qtln.regions.QTL;
@@ -87,6 +90,7 @@ public class QTLServiceImpl extends RemoteServiceServlet implements
     //  This lookup is initialized in the Servlet "init()" method below.
     // cgdsnpdb _loc_func_key -> location/function description
     private static Map<Integer,String> snpLocFuncs;
+    private static SolrServer solrServer;
 
     /** init
      * Runs inititalizations that must occur before methods of servlet are run.
@@ -126,6 +130,10 @@ public class QTLServiceImpl extends RemoteServiceServlet implements
                 (Map<String, List<String>>)context.getAttribute("liverLowFatStrainLookup");
         QTLServiceImpl.liverHighFatStrainLookup =
                 (Map<String, List<String>>)context.getAttribute("liverHighFatStrainLookup");
+         QTLServiceImpl.solrServer =
+                (SolrServer)context.getAttribute("solrServer");
+       
+        
         //  If any of these were not provided with user properties, we'll
         //  use the default values instead
         String driver = (String)context.getAttribute("db_driver");
@@ -142,6 +150,8 @@ public class QTLServiceImpl extends RemoteServiceServlet implements
         if (db_password != null) QTLServiceImpl.db_password = db_password;
 
         //  Get our location function lookup
+        /*  Must disable until port is opened in firewall
+         *  WAITIN ON IT....
         CGDSnpDB snpDb = new CGDSnpDB(QTLServiceImpl.db_host,
                 QTLServiceImpl.db_name, QTLServiceImpl.db_user,
                 QTLServiceImpl.db_password);
@@ -152,6 +162,8 @@ public class QTLServiceImpl extends RemoteServiceServlet implements
         } catch (SQLException sqle) {
             throw new ServletException(sqle.getMessage());
         }
+         * 
+         */
 
     }
 
@@ -528,6 +540,79 @@ public class QTLServiceImpl extends RemoteServiceServlet implements
         }
     }
 
+
+    /**
+     * Get a region by Chromosome and range.
+     *
+     * This method has been written to reduce the amount of data flowing to
+     * the client at any one time.  The data set can be very large for a single
+     * analysis and cause problems with the browser.
+     *
+     */
+    public List<Map<String,String>> searchPhenotypesForQTLs(String searchString) {
+        List<Map<String,String>> results = null;
+        try {
+                    //Do a test query and make sure it's working
+            SolrQuery solrQuery = new SolrQuery().setQuery("name:" + searchString + ", terms:" + searchString).
+                    addSortField("chr_num",SolrQuery.ORDER.asc).addSortField("cm",SolrQuery.ORDER.asc).
+                    setFacet(true).setRows(10).
+                    setFacetMinCount(1).setIncludeScore(true).
+                    setFacetLimit(8).addFacetField("id").
+                    addFacetField("symbol").
+                    addFacetField("name").addFacetField("terms");
+            QueryResponse rsp = this.solrServer.query(solrQuery);
+            //Iterator<SolrDocument> iter = rsp.getResults().iterator();
+            List<MGIQTL> beans = rsp.getBeans(MGIQTL.class);
+
+            //while (iter.hasNext()) {
+            if (beans.size() > 0) {
+                results = new ArrayList<Map<String,String>>();
+                
+                for (Iterator<MGIQTL> iter = beans.iterator(); iter.hasNext();) {
+                    MGIQTL resultDoc = iter.next();
+                    Map qtl = new HashMap<String, String>();
+                    
+                    String id = (String) resultDoc.getId();
+                    qtl.put("qtlid", id);
+                    String chr = (String) resultDoc.getChromosome();
+                    qtl.put("chr",chr);
+                    Float cm = (Float) resultDoc.getCentimorgans();
+                    qtl.put("cm", cm);
+                    String symbol = (String) resultDoc.getSymbol();
+                    qtl.put("symbol", symbol);
+                    String name = (String) resultDoc.getName();
+                    qtl.put("name", name);
+                    System.out.println(id + "," + chr + "," + cm + "," + symbol + "," + name + "\n");
+                    String[] terms = resultDoc.getMpterms();
+                    String term_out = "";
+                    if (terms != null && terms.length > 0) {
+                        boolean first = true;
+                        for (String term : terms) {
+                            if (first)
+                                first = false;
+                            else
+                                term_out = "\n" + term_out;
+                            term_out += term;
+                        }
+                    }
+                    qtl.put("terms",term_out);
+                    results.add(qtl);
+                }
+                System.out.println("Returned first " + beans.size() + " limited to 10");
+
+            }
+            else {
+                System.out.println("Nothing found");
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+            System.out.println("FAILURE DOING SOLR QUERY!");
+            
+        }
+
+        return results;
+
+    }
 
     /**
      * Returns the current session
