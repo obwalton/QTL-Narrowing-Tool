@@ -552,18 +552,22 @@ public class QTLServiceImpl extends RemoteServiceServlet implements
     public List<Map<String,String>> searchPhenotypesForQTLs(String searchString) {
         List<Map<String,String>> results = null;
         try {
-                    //Do a test query and make sure it's working
+            System.out.println("In searchPhenotypesForQTLs");
+            //Do a test query and make sure it's working
             SolrQuery solrQuery = new SolrQuery().setQuery("name:" + searchString + ", terms:" + searchString).
-                    addSortField("chr_num",SolrQuery.ORDER.asc).addSortField("cm",SolrQuery.ORDER.asc).
+                    addSortField("chr_num",SolrQuery.ORDER.asc).addSortField("start",SolrQuery.ORDER.asc).
                     setFacet(true).setRows(10).
                     setFacetMinCount(1).setIncludeScore(true).
                     setFacetLimit(8).addFacetField("id").
                     addFacetField("symbol").
                     addFacetField("name").addFacetField("terms");
+            System.out.println("built query " + solrQuery.toString());
             QueryResponse rsp = this.solrServer.query(solrQuery);
+            System.out.println("Back from query");
             //Iterator<SolrDocument> iter = rsp.getResults().iterator();
             List<MGIQTL> beans = rsp.getBeans(MGIQTL.class);
 
+            System.out.println("cycle through " + beans.size() + " results...");
             //while (iter.hasNext()) {
             if (beans.size() > 0) {
                 results = new ArrayList<Map<String,String>>();

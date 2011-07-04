@@ -528,7 +528,7 @@ public class QTLNarrowingEntryPoint implements EntryPoint {
 
             public void onFailure(Throwable caught) {
                  //progressDialog.hide();
-                System.out.println("IN FAIL CASE");
+                GWT.log("IN FAIL CASE");
                 // Show the RPC error message to the user
                 String textForMessage = caught.getMessage();
                 dialogBox = MessageBox.alert("QTL Narrowing", textForMessage,
@@ -537,7 +537,7 @@ public class QTLNarrowingEntryPoint implements EntryPoint {
             }
 
             public void onSuccess(List<Map<String,String>> results) {
-                System.out.println("IN SUCCESS CASE");
+                GWT.log("IN SUCCESS CASE");
 
                 String textForMessage = "";
                 
@@ -556,8 +556,9 @@ public class QTLNarrowingEntryPoint implements EntryPoint {
             public void onClick(ClickEvent event) {
                 mgiButton.setEnabled(false);
                 String text = mgiTextBox.getText().trim();
+                GWT.log("Have text from MGI Box = " + text);
 
-                System.out.println("Calling searchPhenotypesForQTLs");
+                GWT.log("Calling searchPhenotypesForQTLs");
                 qtlService.searchPhenotypesForQTLs(text, mgiSearchCallback);
              
             }
