@@ -250,8 +250,8 @@ public class QTLNarrowingEntryPoint implements EntryPoint {
         mgiTextBox.setName("mgi_text");
         mgiTextBox.setWidth("400");
         // Disable until we get phenotype searching set up
-        mgiTextBox.setEnabled(false);
-        mgiButton.setEnabled(false);
+        mgiTextBox.setEnabled(true);
+        mgiButton.setEnabled(true);
 
 
         HorizontalPanel mgiPanel = new HorizontalPanel();
@@ -1890,8 +1890,8 @@ public class QTLNarrowingEntryPoint implements EntryPoint {
 
     private void clear() {
         //  TODO: Turn off until mgi phenotype searching fixed.
-        //this.mgiTextBox.setText("");
-        //this.mgiButton.setEnabled(true);
+        this.mgiTextBox.setText("");
+        this.mgiButton.setEnabled(true);
         FileUpload upload = (FileUpload) this.uploadPanel.getWidget(1);
         this.uploadPanel.remove(upload);
         upload = new FileUpload();

@@ -4,7 +4,6 @@
  */
 package org.jax.qtln.mgisearch;
 
-import java.util.HashMap;
 import org.apache.solr.client.solrj.beans.Field;
 
 /**
@@ -22,9 +21,12 @@ public class MGIQTL {
     @Field("chr_num")
     Integer chromosomeNumber;
 
-    @Field("cm")
-    Float centimorgans;
-    
+    @Field("start")
+    Integer bp_start;
+
+    @Field("end")
+    Integer bp_end;
+
     @Field("symbol")
     String symbol;
 
@@ -34,12 +36,20 @@ public class MGIQTL {
     @Field("terms")
     String[] mpterms;
 
-    public Float getCentimorgans() {
-        return centimorgans;
+    public Integer getBp_start() {
+        return bp_start;
     }
 
-    public void setCentimorgans(Float centimorgans) {
-        this.centimorgans = centimorgans;
+    public void setBp_start(Integer start) {
+        this.bp_start = start;
+    }
+
+    public Integer getBp_end() {
+        return bp_end;
+    }
+
+    public void setBp_end(Integer end) {
+        this.bp_end = end;
     }
 
     public String getChromosome() {

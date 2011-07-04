@@ -432,7 +432,8 @@
    <field name="chr_num" type="int" indexed="true" stored="true" omitNorms="true" />
    <field name="mpid" type="string" indexed="true" stored="true" omitNorms="true" />
    <field name="symbol" type="string" indexed="true" stored="true" omitNorms="true" />
-   <field name="cm" type="float" indexed="true" stored="true" omitNorms="true" />
+   <field name="start" type="int" indexed="true" stored="true" omitNorms="true" />
+   <field name="end" type="int" indexed="true" stored="true" omitNorms="true" />
    <field name="shortdesc" type="textgen" indexed="true" stored="true"/>
    <field name="longdesc" type="textgen" indexed="true" stored="true"/>
    <field name="terms" type="text_ws" indexed="true" stored="true" multiValued="true" />

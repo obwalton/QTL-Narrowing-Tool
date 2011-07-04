@@ -43,7 +43,7 @@ import org.apache.solr.client.solrj.SolrServer;
 import org.apache.solr.client.solrj.embedded.EmbeddedSolrServer;
 import org.apache.solr.core.CoreContainer;
 
-import org.jax.qtln.mgisearch.LoadData;
+import org.jax.qtln.mgisearch.QTLPhenotypeLoader;
 import org.xml.sax.SAXException;
 
 /**
@@ -73,18 +73,29 @@ public class QTLServletContextListener implements ServletContextListener {
     //  expression analysis.  Again:
     //  These are only default values for testing on my mac, actual values
     //  should be pulled from the qnt.propertie file
-    private String LUNG_RMA = "/Users/dow/Documents/workspace/QTLNarrowing/data/GEX/Lung/lung_rma.dat";
-    private String LUNG_DESIGN = "/Users/dow/Documents/workspace/QTLNarrowing/data/GEX/Lung/lung_design.txt";
-    private String LIVER_RMA = "/Users/dow/Documents/workspace/QTLNarrowing/data/GEX/Liver/liver_rma.dat";
-    private String LIVER_DESIGN = "/Users/dow/Documents/workspace/QTLNarrowing/data/GEX/Liver/liver_design.txt";
-    private String LIVER_LF_DESIGN = "/Users/dow/Documents/workspace/QTLNarrowing/data/GEX/Liver/liver_lf_design.txt";
-    private String LIVER_HF_DESIGN = "/Users/dow/Documents/workspace/QTLNarrowing/data/GEX/Liver/liver_hf_design.txt";
+    private String LUNG_RMA =
+            "/Users/dow/Documents/workspace/QTLNarrowing/data/GEX/Lung/lung_rma.dat";
+    private String LUNG_DESIGN =
+            "/Users/dow/Documents/workspace/QTLNarrowing/data/GEX/Lung/lung_design.txt";
+    private String LIVER_RMA =
+            "/Users/dow/Documents/workspace/QTLNarrowing/data/GEX/Liver/liver_rma.dat";
+    private String LIVER_DESIGN =
+            "/Users/dow/Documents/workspace/QTLNarrowing/data/GEX/Liver/liver_design.txt";
+    private String LIVER_LF_DESIGN =
+            "/Users/dow/Documents/workspace/QTLNarrowing/data/GEX/Liver/liver_lf_design.txt";
+    private String LIVER_HF_DESIGN =
+            "/Users/dow/Documents/workspace/QTLNarrowing/data/GEX/Liver/liver_hf_design.txt";
     private String MGI_FTP_ADDR = "ftp.informatics.jax.org";
     private String MGI_REPORTS_DIR = "pub/reports";
     private String MGI_AFFY_430A_2_0_FILE = "Affy_430A_2.0_mgi.rpt";
     private String MGI_AFFY_430_2_0_FILE = "Affy_430_2.0_mgi.rpt";
     private String MGI_AFFY_U74_FILE = "Affy_U74_mgi.rpt";
     private String MGI_AFFY_V1_0_FILE = "Affy_1.0_ST_mgi.rpt";
+    private String SOLR_HOME =
+            "/Users/dow/Documents/workspace/QTLN/apache-solr-1.4.1/example/solr";
+    private String MGI_MARKERS_FILE = "MGI_Coordinate.rpt";
+    private String MGI_QTL2MP_FILE = "MGI_PhenoGenoMP.rpt";
+    private String MGI_MP_FILE = "VOC_MammalianPhenotype.rpt";
     private static final int MGI_PROBE_FILE_HEADER_SIZE = 5;
 
     // Chromosome -> SNP detail
@@ -155,28 +166,39 @@ public class QTLServletContextListener implements ServletContextListener {
         SolrServer server;
         try {
             // Note that the following property could be set through JVM level arguments too
-            System.setProperty("solr.solr.home", "/Users/dave/QNT_Project/apache-solr-1.4.1/example/solr");
-            sc.log("solr.solr.home system variable set");
+            System.setProperty("solr.solr.home", this.SOLR_HOME);
             CoreContainer.Initializer initializer = new CoreContainer.Initializer();
-            sc.log("initializer created");
             CoreContainer coreContainer = initializer.initialize();
-            sc.log("core container created");
-            server = new EmbeddedSolrServer(coreContainer, "");            //server = new CommonsHttpSolrServer( solrUrl );
-            LoadData loadMGIServer = new LoadData(server);
+            server = new EmbeddedSolrServer(coreContainer, "");
+            QTLPhenotypeLoader loadMGIServer = new QTLPhenotypeLoader(server, 
+                    this.MGI_FTP_ADDR, this.MGI_REPORTS_DIR,
+                    this.MGI_MARKERS_FILE, this.MGI_QTL2MP_FILE,
+                    this.MGI_MP_FILE);
+            server = loadMGIServer.getLoadedServer(sc);
             sc.setAttribute("solrServer", server);
         } catch (MalformedURLException mue) {
-            mue.printStackTrace();
-            sc.log("Failed to create server");
+            sc.log("Failed to create server - MalformedURLException");
+            sc.log(mue.getMessage());
+            sc.log(mue.getStackTrace().toString());
         } catch (IOException ioe) {
-            ioe.printStackTrace();
             sc.log("Problem building our embedded server");
+            sc.log(ioe.getMessage());
+            sc.log(ioe.getStackTrace().toString());
         } catch (ParserConfigurationException pce) {
-            pce.printStackTrace();
+            sc.log("ParserConfigurationException");
+            sc.log(pce.getMessage());
+            sc.log(pce.getStackTrace().toString());
         } catch (SAXException saxe) {
-            saxe.printStackTrace();
+            sc.log("SAXException");
+            sc.log(saxe.getMessage());
+            sc.log(saxe.getStackTrace().toString());
         } catch (Exception e) {
             sc.log("Catch all for the rest of the exceptions");
-            e.printStackTrace();
+            sc.log(e.getMessage());
+            StackTraceElement[] trace = e.getStackTrace();
+            for (StackTraceElement element: trace) {
+                sc.log(element.toString());
+            }
         }
         
         
@@ -250,7 +272,8 @@ public class QTLServletContextListener implements ServletContextListener {
             sc.log("INIT: Creating SNPFile Object");
             SNPFile result = new SNPFile(snpDir, snpFile, snpNamePattern);
             if (result.valid()) {
-                sc.log("INIT: Loading SNP file for chromosome " + result.getChromosome());
+                sc.log("INIT: Loading SNP file for chromosome " +
+                        result.getChromosome());
                 try {
                     result.load();
                 } catch (IOException ioe) {
@@ -271,6 +294,12 @@ public class QTLServletContextListener implements ServletContextListener {
         //            "data directory (" + snpDirName + "), only found " + chr_count);
         sc.log("Custom Initialization Complete!");
         return snpLookup;
+    }
+
+    private void fetchMGIFiles(ServletContext sc)
+            throws ServletException
+    {
+
     }
 
     private void initProbeSetLookup(ServletContext sc)
@@ -427,28 +456,38 @@ public class QTLServletContextListener implements ServletContextListener {
         if (p.containsKey("data_directory")) {
             String data_dir = p.getProperty("data_directory");
             if (p.containsKey("snp_data_dir")) {
-                this.snpDirName = data_dir + File.separator + p.getProperty("snp_data_dir");
+                this.snpDirName = data_dir + File.separator
+                        + p.getProperty("snp_data_dir");
             }
             if (p.containsKey("lung_rma")) {
-                this.LUNG_RMA = data_dir + File.separator + p.getProperty("lung_rma");
+                this.LUNG_RMA = data_dir + File.separator
+                        + p.getProperty("lung_rma");
             }
             if (p.containsKey("lung_design")) {
-                this.LUNG_DESIGN = data_dir + File.separator + p.getProperty("lung_design");
+                this.LUNG_DESIGN = data_dir + File.separator
+                        + p.getProperty("lung_design");
             }
             if (p.containsKey("liver_rma")) {
-                this.LIVER_RMA = data_dir + File.separator + p.getProperty("liver_rma");
+                this.LIVER_RMA = data_dir + File.separator
+                        + p.getProperty("liver_rma");
             }
             if (p.containsKey("liver_design")) {
-                this.LIVER_DESIGN = data_dir + File.separator + p.getProperty("liver_design");
+                this.LIVER_DESIGN = data_dir + File.separator
+                        + p.getProperty("liver_design");
             }
             if (p.containsKey("liver_lf_design")) {
-                this.LIVER_LF_DESIGN = data_dir + File.separator + p.getProperty("liver_lf_design");
+                this.LIVER_LF_DESIGN = data_dir + File.separator
+                        + p.getProperty("liver_lf_design");
             }
             if (p.containsKey("liver_hf_design")) {
-                this.LIVER_HF_DESIGN = data_dir + File.separator + p.getProperty("liver_hf_design");
+                this.LIVER_HF_DESIGN = data_dir + File.separator
+                        + p.getProperty("liver_hf_design");
             }
         }
 
+        if (p.containsKey("solr_home")) {
+            this.SOLR_HOME = p.getProperty("solr_home");
+        }
         if (p.containsKey("mgi_ftp_addr"))
             this.MGI_FTP_ADDR = p.getProperty("mgi_ftp_addr");
         if (p.containsKey("mgi_reports_dir"))
@@ -459,6 +498,12 @@ public class QTLServletContextListener implements ServletContextListener {
             this.MGI_AFFY_U74_FILE = p.getProperty("mgi_affy_u74_file");
         if (p.containsKey("mgi_affy_v1_0_file"))
             this.MGI_AFFY_V1_0_FILE = p.getProperty("mgi_affy_v1_0_file");
+        if (p.containsKey("mgi_markers"))
+            this.MGI_MARKERS_FILE = p.getProperty("mgi_markers");
+        if (p.containsKey("mgi_qtl2mp"))
+            this.MGI_QTL2MP_FILE = p.getProperty("mgi_qtl2mp");
+        if (p.containsKey("mgi_mpterms"))
+            this.MGI_MP_FILE = p.getProperty("mgi_mpterms");
     }
 
 

@@ -376,6 +376,7 @@
             <arg path="${build.web.dir}/"/>
             <arg value="-noserver"/>
             <arg value="${client.url}"/>
+            <arg line="${gwt.shell.args}"/>
         </java>
     </target>
     
@@ -428,6 +429,7 @@
             <arg value="-noserver"/>
             <arg value="-startupUrl"/>
             <arg value="${client.url}"/>
+            <arg line="${gwt.shell.args}"/>
             <arg line="${gwt.module}"/>
         </java>
     </target>
@@ -481,6 +483,7 @@
             <arg value="-noserver"/>
             <arg value="-startupUrl"/>
             <arg value="${client.url}"/>
+            <arg line="${gwt.shell.args}"/>
             <arg line="${gwt.module}"/>
         </java>
     </target>
@@ -534,6 +537,7 @@
                 <arg value="${gwt.shell.port}"/>
                 <arg value="-codeServerPort"/>
                 <arg value="${gwt.shell.code.server.port}"/>
+                <arg line="${gwt.shell.args}"/>
                 <arg line="${gwt.module}"/>
             </java>
             <sequential>
@@ -606,6 +610,7 @@
             <arg value="${gwt.shell.output.style}"/>
             <arg value="-logLevel"/>
             <arg value="${gwt.shell.logLevel}"/>
+            <arg line="${gwt.shell.args}"/>
             <arg value="${gwt.module}"/>
         </java>
     </target>
@@ -662,6 +667,7 @@
             <arg value="${gwt.shell.logLevel}"/>
             <arg value="-startupUrl"/>
             <arg value="/${client.urlPart}"/>
+            <arg line="${gwt.shell.args}"/>
             <arg line="${gwt.module}"/>
         </java>
     </target>
@@ -718,6 +724,7 @@
             <arg value="${gwt.shell.logLevel}"/>
             <arg value="-startupUrl"/>
             <arg value="/${client.urlPart}"/>
+            <arg line="${gwt.shell.args}"/>
             <arg line="${gwt.module}"/>
         </java>
     </target>
@@ -772,6 +779,7 @@
                 <arg value="${gwt.shell.port}"/>
                 <arg value="-codeServerPort"/>
                 <arg value="${gwt.shell.code.server.port}"/>
+                <arg line="${gwt.shell.args}"/>
                 <arg line="${gwt.module}"/>
             </java>
             <sequential>
@@ -779,5 +787,33 @@
                 <nbbrowse url="http://127.0.0.1:${gwt.shell.port}/${client.urlPart}?gwt.codesvr=127.0.0.1:${gwt.shell.code.server.port}"/>
             </sequential>
         </parallel>
+    </target>
+
+    <target name="-init-macrodef-junit">
+        <macrodef name="junit" uri="http://www.netbeans.org/ns/web-project/2">
+            <attribute default="${includes}" name="includes"/>
+            <attribute default="${excludes}" name="excludes"/>
+            <attribute default="**" name="testincludes"/>
+            <sequential>
+                <junit dir="${basedir}" errorproperty="tests.failed" failureproperty="tests.failed" fork="true" showoutput="true" tempdir="${java.io.tmpdir}">
+                    <batchtest todir="${build.test.results.dir}">
+                        <fileset dir="${test.src.dir}" excludes="@{excludes},${excludes}" includes="@{includes}">
+                            <filename name="@{testincludes}"/>
+                        </fileset>
+                    </batchtest>
+                    <classpath>
+                        <path path="${run.test.classpath}:${j2ee.platform.classpath}:${j2ee.platform.embeddableejb.classpath}:${test.src.dir}:${src.dir}"/>
+                    </classpath>
+                    <syspropertyset>
+                        <propertyref prefix="test-sys-prop."/>
+                        <mapper from="test-sys-prop.*" to="*" type="glob"/>
+                    </syspropertyset>
+                    <formatter type="brief" usefile="false"/>
+                    <formatter type="xml"/>
+                    <jvmarg line="${endorsed.classpath.cmd.line.arg}"/>
+                    <jvmarg line="${gwt.test.jvmargs}"/>
+                </junit>
+            </sequential>
+        </macrodef>
     </target>
 </project>

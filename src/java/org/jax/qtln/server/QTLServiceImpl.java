@@ -576,13 +576,15 @@ public class QTLServiceImpl extends RemoteServiceServlet implements
                     qtl.put("qtlid", id);
                     String chr = (String) resultDoc.getChromosome();
                     qtl.put("chr",chr);
-                    Float cm = (Float) resultDoc.getCentimorgans();
-                    qtl.put("cm", cm);
+                    Integer bp_start = (Integer) resultDoc.getBp_start();
+                    qtl.put("start", bp_start);
+                    Integer bp_end = (Integer) resultDoc.getBp_end();
+                    qtl.put("end", bp_end);
                     String symbol = (String) resultDoc.getSymbol();
                     qtl.put("symbol", symbol);
                     String name = (String) resultDoc.getName();
                     qtl.put("name", name);
-                    System.out.println(id + "," + chr + "," + cm + "," + symbol + "," + name + "\n");
+                    System.out.println(id + "," + chr + "," + bp_start + "-" + bp_end + "," + symbol + "," + name + "\n");
                     String[] terms = resultDoc.getMpterms();
                     String term_out = "";
                     if (terms != null && terms.length > 0) {
