@@ -1520,7 +1520,7 @@ public class QTLNarrowingEntryPoint implements EntryPoint {
                                 //  Threw in try block because of problems
                                 //  occuring with suspected uncaught exceptions
                                 try {
-                                    geneGrid = initGeneTable(genes, doGEX);
+                                    geneGrid = initGeneTable(genes, doGEX, chromosome);
                                     GWT.log("Table Done!");
 
                                     // Create a Dialog object
@@ -1575,7 +1575,8 @@ public class QTLNarrowingEntryPoint implements EntryPoint {
         return grid;
     }
 
-    private Grid initGeneTable(List<Gene> genes, boolean showGEXResults) {
+    private Grid initGeneTable(List<Gene> genes, boolean showGEXResults,
+            String chromosome) {
         final List<ColumnConfig> configs = new ArrayList<ColumnConfig>();
         final Map<String, Gene> genesByMGI = new HashMap<String, Gene>();
         for (Gene gene: genes) {
@@ -1615,6 +1616,13 @@ public class QTLNarrowingEntryPoint implements EntryPoint {
         column.setId("name");
         column.setHeader("Gene Name");
         column.setWidth(150);
+        configs.add(column);
+
+        //  4th Column is the Gene name
+        column = new ColumnConfig();
+        column.setId("chr");
+        column.setHeader("Chr");
+        column.setWidth(50);
         configs.add(column);
 
         //  Set up some number formatters for later use.
@@ -1676,6 +1684,21 @@ public class QTLNarrowingEntryPoint implements EntryPoint {
                 return result;
             }
         };
+
+        column = new ColumnConfig();
+        column.setId("start");
+        column.setHeader("Start");
+        column.setWidth(75);
+        column.setRenderer(formatInt);
+        configs.add(column);
+
+        column = new ColumnConfig();
+        column.setId("end");
+        column.setHeader("End");
+        column.setWidth(75);
+        column.setRenderer(formatInt);
+        configs.add(column);
+
         column = new ColumnConfig();
         column.setId("numsnps");
         //column.setHeader("# SNPs in Gene");
@@ -1771,6 +1794,9 @@ public class QTLNarrowingEntryPoint implements EntryPoint {
             if (gene.getName() != null) {
                 name = gene.getName();
             }
+            String chr = chromosome;
+            Integer start = gene.getStart();
+            Integer end = gene.getEnd();
             List<SNP> snps = gene.getAssociatedSnps();
             Integer numSnps = new Integer(0);
             if (snps != null) {
@@ -1780,8 +1806,8 @@ public class QTLNarrowingEntryPoint implements EntryPoint {
             Double lrMean = gene.getLowRespondingMeanIntensity();
             Double pValue = gene.getPValue();
 
-            GeneResult geneResult = new GeneResult(mgiId, symbol, name,
-                    numSnps.intValue(), hrMean.doubleValue(),
+            GeneResult geneResult = new GeneResult(mgiId, symbol, name, chr,
+                    start, end, numSnps.intValue(), hrMean.doubleValue(),
                     lrMean.doubleValue(), pValue.doubleValue());
             //  add to liststore
             geneList.add(geneResult);
@@ -2297,11 +2323,14 @@ class QTLResult extends BaseModel {
 class GeneResult extends BaseModel {
     public GeneResult() {
     }
-    public GeneResult(String mgiid, String symbol, String name, int numSnps,
-            double hrmean, double lrmean, double pvalue) {
+    public GeneResult(String mgiid, String symbol, String name, String chr, int start,
+            int end, int numSnps, double hrmean, double lrmean, double pvalue) {
         set("symbol",symbol);
         set("mgiid",mgiid);
         set("name", name);
+        set("chr", chr);
+        set("start", start);
+        set("end", end);
         set("numsnps", numSnps);
         set("hrmean",hrmean);
         set("lrmean",lrmean);
@@ -2316,6 +2345,17 @@ class GeneResult extends BaseModel {
     }
     public String getName() {
         return (String)get("name");
+    }
+    public String getChr() {
+        return (String)get("name");
+    }
+    public int getStart() {
+        Integer start = (Integer)get("start");
+        return start.intValue();
+    }
+    public int getEnd() {
+        Integer end = (Integer)get("end");
+        return end.intValue();
     }
     public int getNumsnps() {
         Integer numsnps = (Integer)get("numsnps");

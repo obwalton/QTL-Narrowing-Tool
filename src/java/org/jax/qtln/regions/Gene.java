@@ -43,6 +43,8 @@ public class Gene implements Serializable {
     private String mgiAccessionId;
     private String symbol;
     private String name;
+    private Integer start;
+    private Integer end;
     private List<String> probeSets;
 
     public Gene () {
@@ -53,6 +55,8 @@ public class Gene implements Serializable {
         this.hrMeanIntensity = Double.NaN;
         this.lrMeanIntensity = Double.NaN;
         this.pValue = Double.NaN;
+        this.start = -1;
+        this.end = -1;
     }
 
     public Gene(int cgdId, String mgi) {
@@ -97,6 +101,22 @@ public class Gene implements Serializable {
 
     public void setSymbol(String symbol) {
         this.symbol = symbol;
+    }
+
+    public void setStart(Integer start) {
+        this.start = start;
+    }
+
+    public Integer getStart() {
+        return this.start;
+    }
+
+    public void setEnd(Integer end) {
+        this.end = end;
+    }
+
+    public Integer getEnd() {
+        return this.end;
     }
 
     public List<String> getProbeSetIds() {

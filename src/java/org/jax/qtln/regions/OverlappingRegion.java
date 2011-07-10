@@ -259,6 +259,8 @@ public class OverlappingRegion implements Region, Serializable {
      */
     public void addSnpDetails(List<List> details) {
         Integer gene_id;
+        Integer gene_start;
+        Integer gene_end;
         String mgi_id;
         String symbol;
         String name;
@@ -277,13 +279,15 @@ public class OverlappingRegion implements Region, Serializable {
 
             snp.addSnpAnnotation((Integer)row.get(2));
             gene_id = (Integer)row.get(3);
-            mgi_id  = (String)row.get(4);
-            symbol  = (String)row.get(5);
-            name  = (String)row.get(6);
-            snp.setRsNumber((String)row.get(7));
+            gene_start = (Integer)row.get(4);
+            gene_end = (Integer)row.get(5);
+            mgi_id  = (String)row.get(6);
+            symbol  = (String)row.get(7);
+            name  = (String)row.get(8);
+            snp.setRsNumber((String)row.get(9));
 
-            String otherId = (String)row.get(8);
-            String otherSrc = (String)row.get(9);
+            String otherId = (String)row.get(10);
+            String otherSrc = (String)row.get(11);
             String curId = snp.getSnpId();
             String curSrc = snp.getSource();
             if (curId == null) {
@@ -304,6 +308,8 @@ public class OverlappingRegion implements Region, Serializable {
             snp.setCgdAssociatedGeneId(gene_id);
             addGene(gene_id, mgi_id, symbol, name);
             Gene gene = getGene(gene_id);
+            gene.setStart(gene_start);
+            gene.setEnd(gene_end);
             gene.addAssociatedSnp(snp);
         }
     }
