@@ -595,6 +595,7 @@ public class QTLNarrowingEntryPoint implements EntryPoint {
                                 }));
                         d.setButtonAlign(HorizontalAlignment.CENTER);
                         com.extjs.gxt.ui.client.widget.button.Button b = d.getButtonById("ok");
+                        b.setText("Select");
                         b.addSelectionListener(new SelectionListener<ButtonEvent>() {
 
                             @Override
@@ -2061,6 +2062,69 @@ public class QTLNarrowingEntryPoint implements EntryPoint {
         // Now Populate the rows of our store
         ListStore<PhenoSearchResult> qtlList =
                 new ListStore<PhenoSearchResult>();
+        //  Create a custom sorter to deal with special sorter for Chromosome.
+        qtlList.setStoreSorter(new StoreSorter<PhenoSearchResult>() {
+
+            @Override
+            public int compare(Store store, PhenoSearchResult q1,
+                    PhenoSearchResult q2, String property) {
+                //  For now we'll have default order be the order of the user
+                //  uploaded file, not chr.
+                //if (property == null || property.equals("chr")) {
+                if (property != null && property.equals("chr")) {
+                    return sortChr(q1, q2);
+                }
+
+                return super.compare(store, q1, q2, property);
+            }
+
+            private int sortChr(PhenoSearchResult q1, PhenoSearchResult q2) {
+
+                String chr1 = q1.getChr();
+                String chr2 = q2.getChr();
+                int chr1Idx = chromosomeLookup.get(chr1);
+                int chr2Idx = chromosomeLookup.get(chr2);
+
+                if (chr1Idx < chr2Idx) {
+                    return -1;
+                } else if (chr1Idx > chr2Idx) {
+                    return 1;
+                } else if (chr1Idx == chr2Idx) {
+                    //  If the chromosomes are the same, sort on the range
+                    return sortRange(q1, q2);
+                }
+                return 0;
+            }
+
+            private int sortRange(PhenoSearchResult q1, PhenoSearchResult q2) {
+
+                Integer start1 = q1.getStart();
+                Integer start2 = q2.getStart();
+                Integer end1 = q1.getEnd();
+                Integer end2 = q2.getEnd();
+                int s1 = start1.intValue();
+                int e1 = end1.intValue();
+                int s2 = start2.intValue();
+                int e2 = end2.intValue();
+                if (s1 < s2) {
+                    return -1;
+                } else if (s1 > s2) {
+                    return 1;
+                } else if (s1 == s2) {
+                    //  If the starts are the same, see which one has a
+                    //  smaller end.
+                    if (e1 < e2) {
+                        return -1;
+                    } else if (e1 > e2) {
+                        return 1;
+                    }
+                }
+                return 0;
+            }
+
+        });
+
+
         for (Map<String,String> qtl : qtls) {
             PhenoSearchResult psResult = new PhenoSearchResult(qtl);
             qtlList.add(psResult);
