@@ -8,4 +8,5 @@
   <entry-point class="org.jax.qtln.client.QTLNarrowingEntryPoint"/>
   <!-- Do not define servlets here, use web.xml -->
   <stylesheet src="QTL.css"/>
+  <stylesheet src="gxt-all.css"/>
 </module>
