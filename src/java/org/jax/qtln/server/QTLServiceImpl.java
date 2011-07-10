@@ -151,7 +151,7 @@ public class QTLServiceImpl extends RemoteServiceServlet implements
 
         //  Get our location function lookup
         /*  Must disable until port is opened in firewall
-         *  WAITIN ON IT....
+         *  WAITIN ON IT.... Unless running inside of firewall */
         CGDSnpDB snpDb = new CGDSnpDB(QTLServiceImpl.db_host,
                 QTLServiceImpl.db_name, QTLServiceImpl.db_user,
                 QTLServiceImpl.db_password);
@@ -162,8 +162,6 @@ public class QTLServiceImpl extends RemoteServiceServlet implements
         } catch (SQLException sqle) {
             throw new ServletException(sqle.getMessage());
         }
-         * 
-         */
 
     }
 
@@ -555,8 +553,8 @@ public class QTLServiceImpl extends RemoteServiceServlet implements
             System.out.println("In searchPhenotypesForQTLs");
             //Do a test query and make sure it's working
             SolrQuery solrQuery = new SolrQuery().setQuery("name:" + searchString + ", terms:" + searchString).
-                    addSortField("chr_num",SolrQuery.ORDER.asc).addSortField("start",SolrQuery.ORDER.asc).
-                    setFacet(true).setRows(10).
+                    addSortField("score",SolrQuery.ORDER.desc).
+                    setFacet(true).setRows(100).
                     setFacetMinCount(1).setIncludeScore(true).
                     setFacetLimit(8).addFacetField("id").
                     addFacetField("symbol").
@@ -581,9 +579,9 @@ public class QTLServiceImpl extends RemoteServiceServlet implements
                     String chr = (String) resultDoc.getChromosome();
                     qtl.put("chr",chr);
                     Integer bp_start = (Integer) resultDoc.getBp_start();
-                    qtl.put("start", bp_start);
+                    qtl.put("start", bp_start.toString());
                     Integer bp_end = (Integer) resultDoc.getBp_end();
-                    qtl.put("end", bp_end);
+                    qtl.put("end", bp_end.toString());
                     String symbol = (String) resultDoc.getSymbol();
                     qtl.put("symbol", symbol);
                     String name = (String) resultDoc.getName();
@@ -604,7 +602,7 @@ public class QTLServiceImpl extends RemoteServiceServlet implements
                     qtl.put("terms",term_out);
                     results.add(qtl);
                 }
-                System.out.println("Returned first " + beans.size() + " limited to 10");
+                System.out.println("Returned first " + beans.size() + " limited to 100");
 
             }
             else {
