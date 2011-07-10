@@ -19,8 +19,10 @@ package org.jax.qtln.client;
 
 import com.extjs.gxt.ui.client.GXT;
 import com.extjs.gxt.ui.client.Style.HorizontalAlignment;
+import com.extjs.gxt.ui.client.Style.Scroll;
 import com.extjs.gxt.ui.client.data.BaseModel;
 import com.extjs.gxt.ui.client.data.ModelData;
+import com.extjs.gxt.ui.client.event.ButtonEvent;
 import com.extjs.gxt.ui.client.event.Events;
 import com.extjs.gxt.ui.client.event.GridEvent;
 import com.extjs.gxt.ui.client.event.IconButtonEvent;
@@ -41,6 +43,7 @@ import com.extjs.gxt.ui.client.widget.form.NumberField;
 import com.extjs.gxt.ui.client.widget.form.SimpleComboBox;
 import com.extjs.gxt.ui.client.widget.form.TextField;
 import com.extjs.gxt.ui.client.widget.grid.CellEditor;
+import com.extjs.gxt.ui.client.widget.grid.CheckBoxSelectionModel;
 import com.extjs.gxt.ui.client.widget.grid.ColumnConfig;
 import com.extjs.gxt.ui.client.widget.grid.ColumnData;
 import com.extjs.gxt.ui.client.widget.grid.ColumnModel;
@@ -66,7 +69,6 @@ import com.google.gwt.user.client.ui.FileUpload;
 import com.google.gwt.user.client.ui.FormPanel;
 import com.google.gwt.user.client.ui.FormPanel.SubmitCompleteEvent;
 import com.google.gwt.user.client.ui.FormPanel.SubmitEvent;
-import com.google.gwt.user.client.ui.HTML;
 import com.google.gwt.user.client.ui.Hidden;
 import com.google.gwt.user.client.ui.HorizontalPanel;
 import com.google.gwt.user.client.ui.ListBox;
@@ -531,24 +533,120 @@ public class QTLNarrowingEntryPoint implements EntryPoint {
                 GWT.log("IN FAIL CASE");
                 // Show the RPC error message to the user
                 String textForMessage = caught.getMessage();
-                dialogBox = MessageBox.alert("QTL Narrowing", textForMessage,
-                        alertListener);
-                dialogBox.show();
+                //dialogBox = MessageBox.alert("QTL Narrowing", textForMessage,
+                //        alertListener);
+                //dialogBox.show();
+                final Dialog simple = new Dialog();
+                simple.setHeading("MGI Phenotype Search");
+                simple.setButtons(Dialog.OK);
+                simple.setBodyStyleName("pad-text");
+                simple.addText(textForMessage);
+                simple.setScrollMode(Scroll.AUTO);
+                simple.setHideOnButtonClick(true);
+                simple.show();
+                mgiButton.setEnabled(true);
             }
 
-            public void onSuccess(List<Map<String,String>> results) {
-                GWT.log("IN SUCCESS CASE");
+            public void onSuccess(List<Map<String, String>> results) {
+                GWT.log("IN SUCCESS CASE for Pheno Search");
 
-                String textForMessage = "";
-                
-                for (Map<String, String> result : results) {
-                    textForMessage += (String)result.get("qtlid");
+                if (results == null || results.isEmpty()) {
+                    String textForMessage = "No MGI QTLs found for search parameter = " + mgiTextBox.getValue();
+                    final Dialog simple = new Dialog();
+                    simple.setHeading("MGI Phenotype Search");
+                    simple.setButtons(Dialog.OK);
+                    simple.setBodyStyleName("pad-text");
+                    simple.addText(textForMessage);
+                    simple.setScrollMode(Scroll.AUTO);
+                    simple.setHideOnButtonClick(true);
+                    //dialogBox = MessageBox.alert("QTL Narrowing", textForMessage,
+                    //        alertListener);
+                    simple.show();
+                    mgiButton.setEnabled(true);
+                } else {
+                    //Grid qtlGrid;
+                    //  Threw in try block because of problems
+                    //  occuring with suspected uncaught exceptions
+                    try {
+                        Dialog d = new Dialog();
+                        final Grid qtlGrid = initPhenoSearchTable(results);
+
+                        // Create a Dialog object
+                        //Dialog d = new Dialog();
+                        d.setHideOnButtonClick(true);
+                        d.setButtons(Dialog.OKCANCEL);
+                        d.okText = "Select";
+                        d.setBodyBorder(false);
+                        d.setHeading("MGI Pheno Search results " + mgiTextBox.getValue());
+                        d.getHeader().addTool(new ToolButton("x-tool-help",
+                                new SelectionListener<IconButtonEvent>() {
+
+                                    @Override
+                                    public void componentSelected(IconButtonEvent ce) {
+                                        Window w = new Window();
+                                        w.setHeading("QTL Narrowing Tool Help");
+                                        w.setSize(600, 400);
+                                        w.setMaximizable(true);
+                                        w.setToolTip("The QNT Help Page...");
+                                        w.setUrl("QNT_user_manual.html#pheno");
+                                        w.show();
+
+                                    }
+                                }));
+                        d.setButtonAlign(HorizontalAlignment.CENTER);
+                        com.extjs.gxt.ui.client.widget.button.Button b = d.getButtonById("ok");
+                        b.addSelectionListener(new SelectionListener<ButtonEvent>() {
+
+                            @Override
+                            public void componentSelected(ButtonEvent ce) {
+                                //  If "Ok" is selected, then grab selected
+                                //  rows and add them to QTL Editable Table
+                                CheckBoxSelectionModel sm = (CheckBoxSelectionModel) qtlGrid.getSelectionModel();
+                                List items = sm.getSelectedItems();
+                                EditorGrid qtlTable = (EditorGrid) qtlPanel.getWidget(0);
+                                ListStore<UIQTL> qtlList =
+                                        (ListStore<UIQTL>) qtlTable.getStore();
+                                for (Iterator i = items.iterator();
+                                        i.hasNext();) {
+                                    PhenoSearchResult result = (PhenoSearchResult) i.next();
+                                    String qtlid = result.getQtlid();
+                                    String phenotype = mgiTextBox.getValue();
+                                    String species = "Mouse";
+                                    String hrstrain = "Unknown";
+                                    String lrstrain = "Unknown";
+                                    String chr = result.getChr();
+                                    Integer start = new Integer(result.getStart());
+                                    Integer end = new Integer(result.getEnd());
+
+                                    UIQTL qtl = new UIQTL(qtlid, phenotype, species,
+                                            hrstrain, lrstrain, chr, start, end);
+                                    qtlList.add(qtl);
+                                }
+                                //  We have data in our table from upload, we can't
+                                //  upload another file until cleared
+                                uploadButton.setEnabled(false);
+                                //  Now that the table is loaded, we can now narrow
+                                //  QTLs.
+                                narrowButton.setEnabled(true);
+
+                            }
+                        });
+                        //  For some reason, results were not showing in
+                        //  grid with BorderLayout!
+                        d.setLayout(new FitLayout());
+                        d.setSize(750, 300);
+
+                        d.add(qtlGrid);
+                        d.show();
+                        mgiButton.setEnabled(true);
+
+                    } catch (Throwable ex) {
+                        GWT.log(ex.getMessage(), ex);
+                    }
                 }
-                dialogBox = MessageBox.alert("QTL Narrowing", textForMessage,
-                        alertListener);
-                dialogBox.show();
-                mgiButton.setEnabled(true);
-           }
+
+            }
+
         };
 
         // Functionality for the MGI Button
@@ -1888,6 +1986,102 @@ public class QTLNarrowingEntryPoint implements EntryPoint {
         return grid;
     }
 
+    private Grid initPhenoSearchTable(List<Map<String,String>> qtls) {
+        final List<ColumnConfig> configs = new ArrayList<ColumnConfig>();
+        final CheckBoxSelectionModel<PhenoSearchResult> sm =
+                new CheckBoxSelectionModel<PhenoSearchResult>();
+        configs.add(sm.getColumn());
+
+        //  For formatting our start and end numeric columns
+        final NumberFormat intFmt = NumberFormat.getFormat("#,##0");
+        GridCellRenderer<PhenoSearchResult> formatInt =
+                new GridCellRenderer<PhenoSearchResult>() {
+
+            public String render(PhenoSearchResult model, String property,
+                    ColumnData config, int rowIndex, int colIndex,
+                    ListStore<PhenoSearchResult> qtlList,
+                    Grid<PhenoSearchResult> grid) {
+                int val = 0;
+                if (property.equals("start"))
+                    val = model.getStart();
+                else if (property.equals("end"))
+                    val = model.getEnd();
+                else
+                    val = (Integer) model.get(property);
+
+                return intFmt.format(val);
+            }
+        };
+
+        //  first Column is the QTL ID
+        ColumnConfig column = new ColumnConfig();
+        column.setId("qtlid");
+        column.setHeader("QTL Id");
+        column.setWidth(50);
+        configs.add(column);
+
+        column = new ColumnConfig();
+        column.setId("chr");
+        column.setHeader("Chr");
+        column.setWidth(50);
+        configs.add(column);
+
+        column = new ColumnConfig();
+        column.setId("start");
+        column.setHeader("BP Start");
+        column.setWidth(75);
+        column.setRenderer(formatInt);
+        configs.add(column);
+
+        column = new ColumnConfig();
+        column.setId("end");
+        column.setHeader("BP End");
+        column.setWidth(75);
+        column.setRenderer(formatInt);
+        configs.add(column);
+
+        column = new ColumnConfig();
+        column.setId("symbol");
+        column.setHeader("QTL Symbol");
+        column.setWidth(75);
+        configs.add(column);
+
+        column = new ColumnConfig();
+        column.setId("name");
+        column.setHeader("QTL Name");
+        column.setWidth(100);
+        configs.add(column);
+
+        column = new ColumnConfig();
+        column.setId("terms");
+        column.setHeader("Associated MP Terms");
+        column.setWidth(200);
+        configs.add(column);
+
+        // Now Populate the rows of our store
+        ListStore<PhenoSearchResult> qtlList =
+                new ListStore<PhenoSearchResult>();
+        for (Map<String,String> qtl : qtls) {
+            PhenoSearchResult psResult = new PhenoSearchResult(qtl);
+            qtlList.add(psResult);
+        }
+        ColumnModel cm = new ColumnModel(configs);
+
+        // Now create our Grid
+        //final Grid<GeneResult> grid = new Grid<GeneResult>(geneList, cm);
+        Grid<PhenoSearchResult> grid = new Grid<PhenoSearchResult>(qtlList, cm);
+
+        grid.setStyleAttribute("borderTop", "none");
+        grid.setAutoExpandColumn("terms");
+        grid.setSelectionModel(sm);
+        grid.setBorders(true);
+        grid.setStripeRows(true);
+        grid.addPlugin(sm);
+
+
+        return grid;
+    }
+
 
     private void clear() {
         //  TODO: Turn off until mgi phenotype searching fixed.
@@ -2117,6 +2311,46 @@ class SnpResult extends BaseModel {
     }
     public String getAnnotation() {
         return (String)get("annotation");
+    }
+}
+
+class PhenoSearchResult extends BaseModel {
+    public PhenoSearchResult() {
+    }
+    public PhenoSearchResult(Map<String,String> qtl) {
+        set("qtlid", qtl.get("qtlid"));
+        set("chr", qtl.get("chr"));
+        set("start", qtl.get("start"));
+        set("end", qtl.get("end"));
+        set("symbol", qtl.get("symbol"));
+        set("name", qtl.get("name"));
+        set("terms", qtl.get("terms"));
+    }
+
+    public String getQtlid() {
+        return (String)get("qtlid");
+    }
+    public String getChr() {
+        return (String)get("chr");
+    }
+    public int getStart() {
+        String start_string = (String)get("start");
+        Integer start = new Integer(start_string);
+        return start.intValue();
+    }
+    public int getEnd() {
+        String end_string = (String)get("end");
+        Integer end = new Integer(end_string);
+        return end.intValue();
+    }
+    public String getSymbol() {
+        return (String)get("symbol");
+    }
+    public String getName() {
+        return (String)get("name");
+    }
+    public String getTerms() {
+        return (String)get("terms");
     }
 }
 
