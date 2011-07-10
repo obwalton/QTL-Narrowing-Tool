@@ -41,5 +41,5 @@ CGD Imputed SNPs
 Mouse Genome Database
 Lung Strain Survey
 Liver Strain Survey
-
+Need to copy gxt images folder to qtl-narrowing-tool/web/resources/images/
 
