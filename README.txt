@@ -43,3 +43,8 @@ Lung Strain Survey
 Liver Strain Survey
 Need to copy gxt images folder to qtl-narrowing-tool/web/resources/images/
 
+Tomcat Resources
+For the time being we are keeping the app private using basic tomcat auth.
+Place a tomcat-users.xml file in the $TOMCAT/conf directory with the role
+"qtlusers" and then make sure the web.xml file in web/WEB-INF contains the
+authentication lines found in the web.xml in the root directory.
