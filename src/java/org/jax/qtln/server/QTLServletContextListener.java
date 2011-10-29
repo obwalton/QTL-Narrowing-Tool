@@ -165,6 +165,7 @@ public class QTLServletContextListener implements ServletContextListener {
         //  Set up the Solr server
         SolrServer server;
         try {
+            sc.log("creating solr dataset");
             // Note that the following property could be set through JVM level arguments too
             System.setProperty("solr.solr.home", this.SOLR_HOME);
             CoreContainer.Initializer initializer = new CoreContainer.Initializer();
@@ -175,6 +176,7 @@ public class QTLServletContextListener implements ServletContextListener {
                     this.MGI_MARKERS_FILE, this.MGI_QTL2MP_FILE,
                     this.MGI_MP_FILE);
             server = loadMGIServer.getLoadedServer(sc);
+            sc.log("setting solrServer attribute");
             sc.setAttribute("solrServer", server);
         } catch (MalformedURLException mue) {
             sc.log("Failed to create server - MalformedURLException");
@@ -294,12 +296,6 @@ public class QTLServletContextListener implements ServletContextListener {
         //            "data directory (" + snpDirName + "), only found " + chr_count);
         sc.log("Custom Initialization Complete!");
         return snpLookup;
-    }
-
-    private void fetchMGIFiles(ServletContext sc)
-            throws ServletException
-    {
-
     }
 
     private void initProbeSetLookup(ServletContext sc)
@@ -438,6 +434,9 @@ public class QTLServletContextListener implements ServletContextListener {
         }
         if (p.containsKey("db_host")) {
             sc.setAttribute("db_host", p.getProperty("db_host"));
+        }
+        if (p.containsKey("db_port")) {
+            sc.setAttribute("db_port", p.getProperty("db_port"));
         }
         if (p.containsKey("db_name")) {
             sc.setAttribute("db_name", p.getProperty("db_name"));

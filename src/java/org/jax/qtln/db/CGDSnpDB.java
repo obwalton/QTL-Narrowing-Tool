@@ -45,7 +45,8 @@ public class CGDSnpDB {
 
     private String driver = "com.mysql.jdbc.Driver";
     private String protocol = "jdbc:mysql:";
-    private String dbHost = "cgd.jax.org";
+    private String dbHost = "cgddb.jax.org";
+    private String dbPort = "44444";
     private String database = "cgdsnpdb";
     private String user = "pup";
     private String password = "puppass";
@@ -63,11 +64,12 @@ public class CGDSnpDB {
         this.chromosomes = Arrays.asList(chr_array);
     }
 
-    public CGDSnpDB(String dbHost, String database, String user,
+    public CGDSnpDB(String dbHost, String dbPort, String database, String user,
             String password)
     {
         this();
         this.dbHost = dbHost;
+        this.dbPort = dbPort;
         this.database = database;
         this.user = user;
         this.password = password;
@@ -83,7 +85,7 @@ public class CGDSnpDB {
                 props.put("user", this.user);
                 props.put("password", this.password);
                 this.connection = DriverManager.getConnection(this.protocol +
-                        "//" + dbHost + ":3306/" + database, props);
+                        "//" + dbHost + ":" + dbPort + "/" + database, props);
             } catch (SQLException sql) {
                 printSQLException(sql);
                 throw sql;
@@ -337,7 +339,7 @@ public class CGDSnpDB {
 
     public static void main (String[] args) {
         
-        CGDSnpDB querySnpDB = new CGDSnpDB("cgd.jax.org", "cgdsnpdb",
+        CGDSnpDB querySnpDB = new CGDSnpDB("cgddb.jax.org", "44444", "cgdsnpdb",
                 "pup", "puppass");
 
         System.exit(0);

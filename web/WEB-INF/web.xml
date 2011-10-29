@@ -8,6 +8,11 @@
         <servlet-name>qtlServlet</servlet-name>
         <servlet-class>org.jax.qtln.server.QTLServiceImpl</servlet-class>
     </servlet>
+    <servlet>
+        <servlet-name>jerseyServlet</servlet-name>
+        <servlet-class>com.sun.jersey.spi.container.servlet.ServletContainer</servlet-class>
+        <load-on-startup>1</load-on-startup>
+    </servlet>
     <servlet-mapping>
         <servlet-name>uploadServlet</servlet-name>
         <url-pattern>/org.jax.qtln.QTLNarrowing/upload</url-pattern>
@@ -15,6 +20,11 @@
     <servlet-mapping>
         <servlet-name>qtlServlet</servlet-name>
         <url-pattern>/org.jax.qtln.QTLNarrowing/qtl</url-pattern>
+    </servlet-mapping>
+    <servlet-mapping>
+        <servlet-name>jerseyServlet</servlet-name>
+        <url-pattern>/restful/*</url-pattern>
+        <!--<url-pattern>/resources/*</url-pattern>-->
     </servlet-mapping>
     <session-config>
         <session-timeout>
@@ -27,4 +37,22 @@
     <listener>
         <listener-class>org.jax.qtln.server.QTLServletContextListener</listener-class>
     </listener>
+    <security-constraint>
+        <web-resource-collection>
+            <web-resource-name>Wildcard means whole app requires authentication</web-resource-name>
+            <url-pattern>/*</url-pattern>
+            <http-method>GET</http-method>
+            <http-method>POST</http-method>
+        </web-resource-collection>
+        <auth-constraint>
+            <role-name>qtluser</role-name>
+        </auth-constraint>
+        <user-data-constraint>
+            <!-- transport-guarantee can be CONFIDENTIAL, INTEGRAL, or NONE -->
+            <transport-guarantee>NONE</transport-guarantee>
+        </user-data-constraint>
+    </security-constraint>
+    <login-config>
+        <auth-method>BASIC</auth-method>
+    </login-config>
 </web-app>

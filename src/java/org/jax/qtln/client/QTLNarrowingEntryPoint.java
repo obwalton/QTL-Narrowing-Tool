@@ -14,7 +14,6 @@
  * You should have received a copy of the GNU General Public License
  * along with this software.  If not, see <http://www.gnu.org/licenses/>.
  */
-
 package org.jax.qtln.client;
 
 import com.extjs.gxt.ui.client.GXT;
@@ -69,6 +68,7 @@ import com.google.gwt.user.client.ui.FileUpload;
 import com.google.gwt.user.client.ui.FormPanel;
 import com.google.gwt.user.client.ui.FormPanel.SubmitCompleteEvent;
 import com.google.gwt.user.client.ui.FormPanel.SubmitEvent;
+import com.google.gwt.user.client.ui.HTML;
 import com.google.gwt.user.client.ui.Hidden;
 import com.google.gwt.user.client.ui.HorizontalPanel;
 import com.google.gwt.user.client.ui.ListBox;
@@ -78,6 +78,7 @@ import com.google.gwt.user.client.ui.VerticalPanel;
 
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
@@ -114,37 +115,31 @@ import org.jax.qtln.regions.SNP;
 public class QTLNarrowingEntryPoint implements EntryPoint {
     // Constants
     // URL for doing a file upload
+
     private static final String UPLOAD_ACTION_URL = GWT.getModuleBaseURL()
             + "upload";
     //The message displayed to the user when the server cannot be reached or
     //returns an error.
     private static final String SERVER_ERROR = "An error occurred while "
-        + "attempting to contact the server. Please check your network "
-        + "connection and try again. ";
+            + "attempting to contact the server. Please check your network "
+            + "connection and try again. ";
     // The ordered list of mouse chromosomes for sorting purposes
-    private static final String[] MOUSE_CHROMOSOMES = {"1", "2", "3", "4", "5"
-            ,"6", "7", "8", "9", "10", "11", "12", "13", "14", "15"
-            , "16", "17", "18", "19", "X", "Y"};
+    private static final String[] MOUSE_CHROMOSOMES = {"1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12", "13", "14", "15", "16", "17", "18", "19", "X", "Y"};
     //  URL for MGI Gene Detail pages
-    private static final String  MGI_GENE_URL =
+    private static final String MGI_GENE_URL =
             "http://www.informatics.jax.org/javawi2/servlet/WIFetch?page=markerDetail&id=";
-
     //  URL for CGD SNP Database SNP Detail pages
-    private static final String  CGD_SNP_URL = "http://cgd.jax.org/cgdsnpdb/parseQuery.php?snpid=";
-
+    private static final String CGD_SNP_URL = "http://cgd.jax.org/cgdsnpdb/parseQuery.php?snpid=";
     private static final String UCSC_GENOME_BROWSER = "http://genome.ucsc.edu/cgi-bin/hgTracks?clade=mammal&org=Mouse&db=mm9&position=chr##CHR##%3A##RANGE##&hgt.suggest=&pix=800&Submit=submit";
     private static final String HTML_COMMA = "%2C";
-
     /**
      * Create a remote service proxy to talk to the server-side analysis service
      */
     private final QTLServiceAsync qtlService = GWT.create(QTLService.class);
-
     // These are mostly interface variables, I want visible to all submethods
     // of the class.
     private final VerticalPanel masterPanel = new VerticalPanel();
     private final ContentPanel prepPanel = new ContentPanel();
-
     private String[] strains = new String[0];
     private Map<Integer, String> snpAnnotLookup = new HashMap<Integer, String>();
     private Label mgiLabel = new Label("QTL Template by Phenotype from MGI:");
@@ -154,7 +149,6 @@ public class QTLNarrowingEntryPoint implements EntryPoint {
     private Button uploadButton = new Button("Upload");
     private final HorizontalPanel uploadPanel = new HorizontalPanel();
     private final ContentPanel qtlPanel = new ContentPanel();
-
     // Create the popup dialog box for use sending messages
     private MessageBox dialogBox;
     private Listener alertListener;
@@ -169,17 +163,14 @@ public class QTLNarrowingEntryPoint implements EntryPoint {
     private Button narrowButton = new Button("Narrow QTLs");
     private Button clearButton = new Button("Clear");
     private ContentPanel resultsPanel = new ContentPanel();
-
     private MessageBox processingDialog;
     /** Map of Chromosomes (key=chr value), Map of regions(key=range),
      *  Map of values (keys=range,qtls,totalSnpsInRegion,selectedSnpsInRegion
      *                      geneCount */
-    private Map<String, Map<String, Map<String,Object>>> resultMap;
+    private Map<String, Map<String, Map<String, Object>>> resultMap;
     private boolean doGEX = false;
     private String defaultGEXExp = "lung";
-
-    private Map<String,Integer> chromosomeLookup = new HashMap<String,Integer>();
-
+    private Map<String, Integer> chromosomeLookup = new HashMap<String, Integer>();
 
     /** 
      * Creates a new instance of QTLNarrowingEntryPoint
@@ -194,7 +185,7 @@ public class QTLNarrowingEntryPoint implements EntryPoint {
     public void onModuleLoad() {
 
         //  Initialize the Chromsome Lookup for later use
-        for (int i=0;i<MOUSE_CHROMOSOMES.length; i++) {
+        for (int i = 0; i < MOUSE_CHROMOSOMES.length; i++) {
             chromosomeLookup.put(MOUSE_CHROMOSOMES[i], i);
         }
         //  Master Panel is the outer panel for all our display widgets
@@ -317,13 +308,21 @@ public class QTLNarrowingEntryPoint implements EntryPoint {
                 System.out.println("IN SUCCESS CASE GET STRAINS");
                 strains = results;
 
-                EditorGrid qtlTable = initEditableQTLTable();
+                final EditorGrid qtlTable = initEditableQTLTable();
 
                 qtlPanel.setBodyBorder(false);
                 qtlPanel.setHeading("QTL List");
                 qtlPanel.setButtonAlign(HorizontalAlignment.CENTER);
                 qtlPanel.setLayout(new FitLayout());
                 qtlPanel.setSize(750, 300);
+                qtlPanel.getHeader().addTool(new ToolButton("x-tool-save",
+                        new SelectionListener<IconButtonEvent>() {
+
+                            @Override
+                            public void componentSelected(IconButtonEvent ce) {
+                                exportListStore(qtlTable.getStore());
+                            }
+                        }));
                 qtlPanel.getHeader().addTool(new ToolButton("x-tool-help",
                         new SelectionListener<IconButtonEvent>() {
 
@@ -455,10 +454,18 @@ public class QTLNarrowingEntryPoint implements EntryPoint {
 
                 masterPanel.add(prepPanel);
 
-
-                Grid summaryTable = initResultTable();
+                // Made this final so that I could access from save button
+                final Grid summaryTable = initResultTable();
                 resultsPanel.setBodyBorder(false);
                 resultsPanel.setHeading("QTL Narrowing Results: Region Table");
+                resultsPanel.getHeader().addTool(new ToolButton("x-tool-save",
+                        new SelectionListener<IconButtonEvent>() {
+
+                            @Override
+                            public void componentSelected(IconButtonEvent ce) {
+                                exportListStore(summaryTable.getStore());
+                            }
+                        }));
                 resultsPanel.getHeader().addTool(new ToolButton("x-tool-help",
                         new SelectionListener<IconButtonEvent>() {
 
@@ -482,7 +489,7 @@ public class QTLNarrowingEntryPoint implements EntryPoint {
                 masterPanel.add(resultsPanel);
 
             }
-        });  
+        });
 
 
         RootPanel.get("formContainer").add(masterPanel);
@@ -490,7 +497,7 @@ public class QTLNarrowingEntryPoint implements EntryPoint {
 
         //  Behind the scenes we need to go fetch the SNP Annotation Lookup.
         //  This is not used until after the results table is populated.
-        qtlService.getSnpAnnotLookup(new AsyncCallback<Map<Integer,String>>() {
+        qtlService.getSnpAnnotLookup(new AsyncCallback<Map<Integer, String>>() {
 
             public void onFailure(Throwable caught) {
                 System.out.println("IN FAIL CASE GET ANNOTS");
@@ -524,134 +531,142 @@ public class QTLNarrowingEntryPoint implements EntryPoint {
         });
 
 
-         // For processing the mgiButton
-        final AsyncCallback mgiSearchCallback = 
-                new AsyncCallback<List<Map<String,String>>>() {
+        // For processing the mgiButton
+        final AsyncCallback mgiSearchCallback =
+                new AsyncCallback<List<Map<String, String>>>() {
 
-            public void onFailure(Throwable caught) {
-                 //progressDialog.hide();
-                GWT.log("IN FAIL CASE");
-                // Show the RPC error message to the user
-                String textForMessage = caught.getMessage();
-                //dialogBox = MessageBox.alert("QTL Narrowing", textForMessage,
-                //        alertListener);
-                //dialogBox.show();
-                final Dialog simple = new Dialog();
-                simple.setHeading("MGI Phenotype Search");
-                simple.setButtons(Dialog.OK);
-                simple.setBodyStyleName("pad-text");
-                simple.addText(textForMessage);
-                simple.setScrollMode(Scroll.AUTO);
-                simple.setHideOnButtonClick(true);
-                simple.show();
-                mgiButton.setEnabled(true);
-            }
+                    public void onFailure(Throwable caught) {
+                        //progressDialog.hide();
+                        GWT.log("IN FAIL CASE");
+                        // Show the RPC error message to the user
+                        String textForMessage = caught.getMessage();
+                        //dialogBox = MessageBox.alert("QTL Narrowing", textForMessage,
+                        //        alertListener);
+                        //dialogBox.show();
+                        final Dialog simple = new Dialog();
+                        simple.setHeading("MGI Phenotype Search");
+                        simple.setButtons(Dialog.OK);
+                        simple.setBodyStyleName("pad-text");
+                        simple.addText(textForMessage);
+                        simple.setScrollMode(Scroll.AUTO);
+                        simple.setHideOnButtonClick(true);
+                        simple.show();
+                        mgiButton.setEnabled(true);
+                    }
 
-            public void onSuccess(List<Map<String, String>> results) {
-                GWT.log("IN SUCCESS CASE for Pheno Search");
+                    public void onSuccess(List<Map<String, String>> results) {
+                        GWT.log("IN SUCCESS CASE for Pheno Search");
 
-                if (results == null || results.isEmpty()) {
-                    String textForMessage = "No MGI QTLs found for search parameter = " + mgiTextBox.getValue();
-                    final Dialog simple = new Dialog();
-                    simple.setHeading("MGI Phenotype Search");
-                    simple.setButtons(Dialog.OK);
-                    simple.setBodyStyleName("pad-text");
-                    simple.addText(textForMessage);
-                    simple.setScrollMode(Scroll.AUTO);
-                    simple.setHideOnButtonClick(true);
-                    //dialogBox = MessageBox.alert("QTL Narrowing", textForMessage,
-                    //        alertListener);
-                    simple.show();
-                    mgiButton.setEnabled(true);
-                } else {
-                    //Grid qtlGrid;
-                    //  Threw in try block because of problems
-                    //  occuring with suspected uncaught exceptions
-                    try {
-                        Dialog d = new Dialog();
-                        final Grid qtlGrid = initPhenoSearchTable(results);
+                        if (results == null || results.isEmpty()) {
+                            String textForMessage = "No MGI QTLs found for search parameter = " + mgiTextBox.getValue();
+                            final Dialog simple = new Dialog();
+                            simple.setHeading("MGI Phenotype Search");
+                            simple.setButtons(Dialog.OK);
+                            simple.setBodyStyleName("pad-text");
+                            simple.addText(textForMessage);
+                            simple.setScrollMode(Scroll.AUTO);
+                            simple.setHideOnButtonClick(true);
+                            //dialogBox = MessageBox.alert("QTL Narrowing", textForMessage,
+                            //        alertListener);
+                            simple.show();
+                            mgiButton.setEnabled(true);
+                        } else {
+                            //Grid qtlGrid;
+                            //  Threw in try block because of problems
+                            //  occuring with suspected uncaught exceptions
+                            try {
+                                Dialog d = new Dialog();
+                                final Grid qtlGrid = initPhenoSearchTable(results);
 
-                        // Create a Dialog object
-                        //Dialog d = new Dialog();
-                        d.setHideOnButtonClick(true);
-                        d.setButtons(Dialog.OKCANCEL);
-                        d.okText = "Select";
-                        d.setBodyBorder(false);
-                        d.setHeading("MGI Pheno Search results " + mgiTextBox.getValue());
-                        d.getHeader().addTool(new ToolButton("x-tool-help",
-                                new SelectionListener<IconButtonEvent>() {
+                                // Create a Dialog object
+                                //Dialog d = new Dialog();
+                                d.setHideOnButtonClick(true);
+                                d.setButtons(Dialog.OKCANCEL);
+                                d.okText = "Select";
+                                d.setBodyBorder(false);
+                                d.setHeading("MGI Pheno Search results " + mgiTextBox.getValue());
+                                d.getHeader().addTool(new ToolButton("x-tool-save",
+                                        new SelectionListener<IconButtonEvent>() {
+
+                                            @Override
+                                            public void componentSelected(IconButtonEvent ce) {
+                                                exportListStore(qtlGrid.getStore());
+                                            }
+                                        }));
+                                d.getHeader().addTool(new ToolButton("x-tool-help",
+                                        new SelectionListener<IconButtonEvent>() {
+
+                                            @Override
+                                            public void componentSelected(IconButtonEvent ce) {
+                                                Window w = new Window();
+                                                w.setHeading("QTL Narrowing Tool Help");
+                                                w.setSize(600, 400);
+                                                w.setMaximizable(true);
+                                                w.setToolTip("The QNT Help Page...");
+                                                w.setUrl("QNT_user_manual.html#pheno");
+                                                w.show();
+
+                                            }
+                                        }));
+                                d.setButtonAlign(HorizontalAlignment.CENTER);
+                                com.extjs.gxt.ui.client.widget.button.Button b = d.getButtonById("ok");
+                                b.setText("Select");
+                                b.addSelectionListener(new SelectionListener<ButtonEvent>() {
 
                                     @Override
-                                    public void componentSelected(IconButtonEvent ce) {
-                                        Window w = new Window();
-                                        w.setHeading("QTL Narrowing Tool Help");
-                                        w.setSize(600, 400);
-                                        w.setMaximizable(true);
-                                        w.setToolTip("The QNT Help Page...");
-                                        w.setUrl("QNT_user_manual.html#pheno");
-                                        w.show();
+                                    public void componentSelected(ButtonEvent ce) {
+                                        //  If "Ok" is selected, then grab selected
+                                        //  rows and add them to QTL Editable Table
+                                        CheckBoxSelectionModel sm = (CheckBoxSelectionModel) qtlGrid.getSelectionModel();
+                                        List items = sm.getSelectedItems();
+                                        EditorGrid qtlTable = (EditorGrid) qtlPanel.getWidget(0);
+                                        ListStore<UIQTL> qtlList =
+                                                (ListStore<UIQTL>) qtlTable.getStore();
+                                        for (Iterator i = items.iterator();
+                                                i.hasNext();) {
+                                            PhenoSearchResult result = (PhenoSearchResult) i.next();
+                                            String qtlid = result.getQtlid();
+                                            String phenotype = mgiTextBox.getValue();
+                                            String species = "Mouse";
+                                            String hrstrain = "Unknown";
+                                            String lrstrain = "Unknown";
+                                            String chr = result.getChr();
+                                            Integer start = new Integer(result.getStart());
+                                            Integer end = new Integer(result.getEnd());
+
+                                            UIQTL qtl = new UIQTL(qtlid, phenotype, species,
+                                                    hrstrain, lrstrain, chr, start, end);
+                                            qtlList.add(qtl);
+                                        }
+                                        //  We have data in our table from upload, we can't
+                                        //  upload another file until cleared
+                                        uploadButton.setEnabled(false);
+                                        //  Now that the table is loaded, we can now narrow
+                                        //  QTLs.
+                                        narrowButton.setEnabled(true);
 
                                     }
-                                }));
-                        d.setButtonAlign(HorizontalAlignment.CENTER);
-                        com.extjs.gxt.ui.client.widget.button.Button b = d.getButtonById("ok");
-                        b.setText("Select");
-                        b.addSelectionListener(new SelectionListener<ButtonEvent>() {
+                                });
+                                //  For some reason, results were not showing in
+                                //  grid with BorderLayout!
+                                d.setLayout(new FitLayout());
+                                d.setSize(750, 300);
 
-                            @Override
-                            public void componentSelected(ButtonEvent ce) {
-                                //  If "Ok" is selected, then grab selected
-                                //  rows and add them to QTL Editable Table
-                                CheckBoxSelectionModel sm = (CheckBoxSelectionModel) qtlGrid.getSelectionModel();
-                                List items = sm.getSelectedItems();
-                                EditorGrid qtlTable = (EditorGrid) qtlPanel.getWidget(0);
-                                ListStore<UIQTL> qtlList =
-                                        (ListStore<UIQTL>) qtlTable.getStore();
-                                for (Iterator i = items.iterator();
-                                        i.hasNext();) {
-                                    PhenoSearchResult result = (PhenoSearchResult) i.next();
-                                    String qtlid = result.getQtlid();
-                                    String phenotype = mgiTextBox.getValue();
-                                    String species = "Mouse";
-                                    String hrstrain = "Unknown";
-                                    String lrstrain = "Unknown";
-                                    String chr = result.getChr();
-                                    Integer start = new Integer(result.getStart());
-                                    Integer end = new Integer(result.getEnd());
+                                d.add(qtlGrid);
+                                d.show();
+                                mgiButton.setEnabled(true);
 
-                                    UIQTL qtl = new UIQTL(qtlid, phenotype, species,
-                                            hrstrain, lrstrain, chr, start, end);
-                                    qtlList.add(qtl);
-                                }
-                                //  We have data in our table from upload, we can't
-                                //  upload another file until cleared
-                                uploadButton.setEnabled(false);
-                                //  Now that the table is loaded, we can now narrow
-                                //  QTLs.
-                                narrowButton.setEnabled(true);
-
+                            } catch (Throwable ex) {
+                                GWT.log(ex.getMessage(), ex);
                             }
-                        });
-                        //  For some reason, results were not showing in
-                        //  grid with BorderLayout!
-                        d.setLayout(new FitLayout());
-                        d.setSize(750, 300);
+                        }
 
-                        d.add(qtlGrid);
-                        d.show();
-                        mgiButton.setEnabled(true);
-
-                    } catch (Throwable ex) {
-                        GWT.log(ex.getMessage(), ex);
                     }
-                }
-
-            }
-
-        };
+                };
 
         // Functionality for the MGI Button
         mgiButton.addClickHandler(new ClickHandler() {
+
             public void onClick(ClickEvent event) {
                 mgiButton.setEnabled(false);
                 String text = mgiTextBox.getText().trim();
@@ -659,20 +674,21 @@ public class QTLNarrowingEntryPoint implements EntryPoint {
 
                 GWT.log("Calling searchPhenotypesForQTLs");
                 qtlService.searchPhenotypesForQTLs(text, mgiSearchCallback);
-             
+
             }
         });
-        
+
 
         // Functionality for the Upload Button
         uploadButton.addClickHandler(new ClickHandler() {
+
             public void onClick(ClickEvent event) {
                 uploadButton.setEnabled(false);
                 form.submit();
             }
         });
 
-       alertListener = new Listener<MessageBoxEvent>() {
+        alertListener = new Listener<MessageBoxEvent>() {
 
             public void handleEvent(MessageBoxEvent mbe) {
                 dialogBox.close();
@@ -684,9 +700,9 @@ public class QTLNarrowingEntryPoint implements EntryPoint {
 
                 //  If there are rows in the QTL List Table, you can now
                 //  narrow results, but you can no longer upload...
-                EditorGrid qtlTable = (EditorGrid)qtlPanel.getWidget(0);
+                EditorGrid qtlTable = (EditorGrid) qtlPanel.getWidget(0);
                 ListStore<UIQTL> qtlList =
-                                (ListStore<UIQTL>)qtlTable.getStore();
+                        (ListStore<UIQTL>) qtlTable.getStore();
                 if (qtlList.getCount() < 1) {
                     uploadButton.setEnabled(true);
                     narrowButton.setEnabled(false);
@@ -726,7 +742,7 @@ public class QTLNarrowingEntryPoint implements EntryPoint {
 
             }
         });  // End of Submit Handler
-        
+
         form.addSubmitCompleteHandler(new FormPanel.SubmitCompleteHandler() {
 
             public void onSubmitComplete(SubmitCompleteEvent event) {
@@ -743,8 +759,8 @@ public class QTLNarrowingEntryPoint implements EntryPoint {
              */
             private void getQTLFile(String outcome) {
 
-                System.out.println("File qtl stored to on server: " +
-                        outcome);
+                System.out.println("File qtl stored to on server: "
+                        + outcome);
 
 
                 qtlService.readQTLFile(new AsyncCallback<List<String[]>>() {
@@ -761,11 +777,11 @@ public class QTLNarrowingEntryPoint implements EntryPoint {
 
                     public void onSuccess(List<String[]> results) {
                         System.out.println("IN SUCCESS CASE OF READ QTL FILE");
-                        EditorGrid qtlTable = (EditorGrid)qtlPanel.getWidget(0);
-                        ListStore<UIQTL> qtlList = 
-                                (ListStore<UIQTL>)qtlTable.getStore();
+                        EditorGrid qtlTable = (EditorGrid) qtlPanel.getWidget(0);
+                        ListStore<UIQTL> qtlList =
+                                (ListStore<UIQTL>) qtlTable.getStore();
                         for (Iterator<String[]> i = results.iterator();
-                        i.hasNext();) {
+                                i.hasNext();) {
                             String[] result = (String[]) i.next();
                             //  TODO: Validate the number of columns!!
                             String qtlid = result[0];
@@ -800,8 +816,8 @@ public class QTLNarrowingEntryPoint implements EntryPoint {
             public void onFailure(Throwable caught) {
                 // Show the RPC error message to the user
                 processingDialog.close();
-                String textForMessage ="Unable to get status - Failure" +
-                        SERVER_ERROR + "<BR>" + caught.getMessage();
+                String textForMessage = "Unable to get status - Failure"
+                        + SERVER_ERROR + "<BR>" + caught.getMessage();
                 dialogBox = MessageBox.alert("QTL Narrowing", textForMessage,
                         alertListener);
                 dialogBox.show();
@@ -814,8 +830,7 @@ public class QTLNarrowingEntryPoint implements EntryPoint {
         };
 
         //  This is the call back for the Narrow QTL service
-        final AsyncCallback narrowingCallback = new AsyncCallback<Map<String,
-                List<Map<String,Object>>>>() {
+        final AsyncCallback narrowingCallback = new AsyncCallback<Map<String, List<Map<String, Object>>>>() {
 
             public void onFailure(Throwable caught) {
                 processingDialog.close();
@@ -828,16 +843,15 @@ public class QTLNarrowingEntryPoint implements EntryPoint {
                 dialogBox.show();
             }
 
-            public void onSuccess(Map<String, List<Map<String,Object>>> results) {
+            public void onSuccess(Map<String, List<Map<String, Object>>> results) {
                 System.out.println("IN SUCCESS CASE");
 
-                Grid summaryTable = (Grid)resultsPanel.getWidget(0);
+                Grid summaryTable = (Grid) resultsPanel.getWidget(0);
                 ListStore<QTLResult> summaryList =
                         (ListStore<QTLResult>) summaryTable.getStore();
 
                 resultMap =
-                        new HashMap<String, 
-                        Map<String, Map<String,Object>>>();
+                        new HashMap<String, Map<String, Map<String, Object>>>();
                 Set<String> keys = results.keySet();
                 GWT.log("Populate summaryList");
                 // I've had problems with null pointer exceptions
@@ -849,20 +863,20 @@ public class QTLNarrowingEntryPoint implements EntryPoint {
                 int rows = 0;
                 for (String chr : keys) {
 
-                    Map chrMap = new HashMap<String, Map<String,Object>>();
+                    Map chrMap = new HashMap<String, Map<String, Object>>();
                     resultMap.put(chr, chrMap);
 
-                    List<Map<String,Object>> regions = results.get(chr);
+                    List<Map<String, Object>> regions = results.get(chr);
                     for (Map region : regions) {
 
                         String range = (String) region.get("range");
                         chrMap.put(range, region);
                         List<String> qtls = (List<String>) region.get("qtls");
                         Integer totalSnps =
-                                (Integer)region.get("totalSnpsInRegion");
+                                (Integer) region.get("totalSnpsInRegion");
                         Integer selectedSnps =
-                                (Integer)region.get("selectedSnpCount");
-                        Integer genes = (Integer)region.get("geneCount");
+                                (Integer) region.get("selectedSnpCount");
+                        Integer genes = (Integer) region.get("geneCount");
 
                         //  TODO: Validate the number of columns!!
 
@@ -870,20 +884,20 @@ public class QTLNarrowingEntryPoint implements EntryPoint {
                         // pointers in adding to the "store" for the
                         // grid.
                         //try {
-                            QTLResult qtlResult = new QTLResult(chr,
-                                    range, qtls.size(),
-                                    totalSnps.intValue(),
-                                    selectedSnps.intValue(), genes.intValue());
-                            //  TODO:  Add a catch of "Not a number" for start
-                            //  and end...
-                            summaryList.add(qtlResult);
-                            ++rows;
+                        QTLResult qtlResult = new QTLResult(chr,
+                                range, qtls.size(),
+                                totalSnps.intValue(),
+                                selectedSnps.intValue(), genes.intValue());
+                        //  TODO:  Add a catch of "Not a number" for start
+                        //  and end...
+                        summaryList.add(qtlResult);
+                        ++rows;
                         //} catch (Throwable t) {
                         //    failure = true;
-                         //   failText = "There was a problem adding " +
-                          //          chr + ":" + range + " to results " +
-                         //           "table: " + t.getMessage();
-                         //   break;
+                        //   failText = "There was a problem adding " +
+                        //          chr + ":" + range + " to results " +
+                        //           "table: " + t.getMessage();
+                        //   break;
                         //}
 
                     }
@@ -940,20 +954,20 @@ public class QTLNarrowingEntryPoint implements EntryPoint {
                         String lrstrain = qtl.getLrstrain();
                         //  Confirm that we are processing valid strains.
                         if (Arrays.binarySearch(strains, hrstrain) < 0) {
-                            throw new InvalidStrainException("You have used " +
-                                    "at least 1 strain '" + hrstrain +
-                                    "' which is not part of the list of imputed " +
-                                    "strains.  Use the drop down list in the " +
-                                    "HR and LR Strain columns in the QTL List " +
-                                    "to find supported strain names.");
+                            throw new InvalidStrainException("You have used "
+                                    + "at least 1 strain '" + hrstrain
+                                    + "' which is not part of the list of imputed "
+                                    + "strains.  Use the drop down list in the "
+                                    + "HR and LR Strain columns in the QTL List "
+                                    + "to find supported strain names.");
                         }
                         if (Arrays.binarySearch(strains, lrstrain) < 0) {
-                            throw new InvalidStrainException("You have used " +
-                                    "at least 1 strain '" + lrstrain +
-                                    "' which is not part of the list of imputed " +
-                                    "strains.  Use the drop down list in the " +
-                                    "HR and LR Strain columns in the QTL List " +
-                                    "to find supported strain names.");
+                            throw new InvalidStrainException("You have used "
+                                    + "at least 1 strain '" + lrstrain
+                                    + "' which is not part of the list of imputed "
+                                    + "strains.  Use the drop down list in the "
+                                    + "HR and LR Strain columns in the QTL List "
+                                    + "to find supported strain names.");
                         }
                         row.add(hrstrain);
                         row.add(lrstrain);
@@ -971,8 +985,8 @@ public class QTLNarrowingEntryPoint implements EntryPoint {
                         }
                     };
                     processingDialog = MessageBox.wait("Narrow QTLs",
-                            "Please wait while your QTL list is narrowed to a " +
-                            "list of Genes", "Processing...");
+                            "Please wait while your QTL list is narrowed to a "
+                            + "list of Genes", "Processing...");
 
                     //  Added these two lines in hopes of controlling the width
                     //  of the dialog... It appears to have had no effect
@@ -999,8 +1013,7 @@ public class QTLNarrowingEntryPoint implements EntryPoint {
                     qtlService.narrowQTLs((List<List>) qtls, doGEX, defaultGEXExp,
                             narrowingCallback);
 
-                }
-                catch (InvalidStrainException ise) {
+                } catch (InvalidStrainException ise) {
 
                     String textForMessage = ise.getMessage();
                     dialogBox = MessageBox.alert("QTL Narrowing", textForMessage,
@@ -1014,6 +1027,7 @@ public class QTLNarrowingEntryPoint implements EntryPoint {
 
         // Functionality for the Clear Button
         clearButton.addClickHandler(new ClickHandler() {
+
             public void onClick(ClickEvent event) {
                 clear();
             }
@@ -1065,8 +1079,7 @@ public class QTLNarrowingEntryPoint implements EntryPoint {
                 String html = "";
                 if (Arrays.binarySearch(strains, val) > -1) {
                     html = val;
-                }
-                else {
+                } else {
                     html = "<span style='color:red'>" + val + "</span>";
                 }
 
@@ -1178,7 +1191,7 @@ public class QTLNarrowingEntryPoint implements EntryPoint {
         column.setEditor(new CellEditor(field));
         GridCellRenderer<UIQTL> formatPosition = new GridCellRenderer<UIQTL>() {
 
-            public String render(UIQTL model, String property, ColumnData config, 
+            public String render(UIQTL model, String property, ColumnData config,
                     int rowIndex, int colIndex, ListStore<UIQTL> qtlList,
                     Grid<UIQTL> grid) {
                 int val = (Integer) model.get(property);
@@ -1262,7 +1275,6 @@ public class QTLNarrowingEntryPoint implements EntryPoint {
                 }
                 return 0;
             }
-
         });
 
         ColumnModel cm = new ColumnModel(configs);
@@ -1299,8 +1311,8 @@ public class QTLNarrowingEntryPoint implements EntryPoint {
                 String chr = (String) model.getChr();
                 String range = (String) model.getRange();
                 String ucsc_link = QTLNarrowingEntryPoint.UCSC_GENOME_BROWSER.replaceFirst("##CHR##", chr);
-                range = range.replaceAll(",",QTLNarrowingEntryPoint.HTML_COMMA);
-                ucsc_link = ucsc_link.replaceFirst("##RANGE##",range);
+                range = range.replaceAll(",", QTLNarrowingEntryPoint.HTML_COMMA);
+                ucsc_link = ucsc_link.replaceFirst("##RANGE##", range);
 
                 String html = "<a href='" + ucsc_link + "' target='_NEW'>" + model.getRange() + "</a>";
                 return html;
@@ -1313,14 +1325,14 @@ public class QTLNarrowingEntryPoint implements EntryPoint {
         GridCellRenderer<QTLResult> formatInt =
                 new GridCellRenderer<QTLResult>() {
 
-            public String render(QTLResult model, String property, 
-                    ColumnData config, int rowIndex, int colIndex,
-                    ListStore<QTLResult> qtlList, Grid<QTLResult> grid) {
-                int val = (Integer) model.get(property);
+                    public String render(QTLResult model, String property,
+                            ColumnData config, int rowIndex, int colIndex,
+                            ListStore<QTLResult> qtlList, Grid<QTLResult> grid) {
+                        int val = (Integer) model.get(property);
 
-                return countFmt.format(val);
-            }
-        };
+                        return countFmt.format(val);
+                    }
+                };
 
         //  Thirds Column is the Number Overlapping QTLs
         column = new ColumnConfig();
@@ -1338,18 +1350,18 @@ public class QTLNarrowingEntryPoint implements EntryPoint {
                 String fmtVal = countFmt.format(val);
                 String chr = model.getChr();
                 String range = model.getRange();
-                Map<String, Map<String,Object>> chrMap = resultMap.get(chr);
-                Map<String,Object> region = chrMap.get(range);
+                Map<String, Map<String, Object>> chrMap = resultMap.get(chr);
+                Map<String, Object> region = chrMap.get(range);
 
-                List<String> qtls = (List<String>)region.get("qtls");
+                List<String> qtls = (List<String>) region.get("qtls");
                 String qtlHtml = "<DL>";
                 for (String qtl : qtls) {
                     qtlHtml += "<DD>" + qtl + "</DD>";
                 }
                 qtlHtml += "</DL>";
 
-                String html = "<span qtitle='Contributing QTLs' qtip='" +
-                        qtlHtml + "'>" + fmtVal + "</span>";
+                String html = "<span qtitle='Contributing QTLs' qtip='"
+                        + qtlHtml + "'>" + fmtVal + "</span>";
                 return html;
             }
         });
@@ -1387,8 +1399,8 @@ public class QTLNarrowingEntryPoint implements EntryPoint {
                     ListStore<QTLResult> store, Grid<QTLResult> grid) {
                 int val = (Integer) model.getNumgenes();
                 String fmtVal = countFmt.format(val);
-                String html = "<span qtitle='Genes' qtip='Click cell for list of " + 
-                        fmtVal + " Genes and Expression info'>" + fmtVal
+                String html = "<span qtitle='Genes' qtip='Click cell for list of "
+                        + fmtVal + " Genes and Expression info'>" + fmtVal
                         + "</span>";
                 return html;
             }
@@ -1464,7 +1476,6 @@ public class QTLNarrowingEntryPoint implements EntryPoint {
                 }
                 return 0;
             }
-
         });
 
         ColumnModel cm = new ColumnModel(configs);
@@ -1516,7 +1527,8 @@ public class QTLNarrowingEntryPoint implements EntryPoint {
                             System.out.println("IN SUCCESS CASE GET REGION");
                             List<Gene> genes = (List<Gene>) region.getGenes();
                             if (genes.size() != 0) {
-                                Grid geneGrid;
+                                // Made final so that we can see it inside save
+                                final Grid geneGrid;
                                 //  Threw in try block because of problems
                                 //  occuring with suspected uncaught exceptions
                                 try {
@@ -1530,6 +1542,14 @@ public class QTLNarrowingEntryPoint implements EntryPoint {
                                     d.setBodyBorder(false);
                                     d.setHeading("QTL Narrowing Results: Genes for Chromosome " + chromosome
                                             + " range " + range);
+                                    d.getHeader().addTool(new ToolButton("x-tool-save",
+                                            new SelectionListener<IconButtonEvent>() {
+
+                                                @Override
+                                                public void componentSelected(IconButtonEvent ce) {
+                                                    exportListStore(geneGrid.getStore());
+                                                }
+                                            }));
                                     d.getHeader().addTool(new ToolButton("x-tool-help",
                                             new SelectionListener<IconButtonEvent>() {
 
@@ -1579,7 +1599,7 @@ public class QTLNarrowingEntryPoint implements EntryPoint {
             String chromosome) {
         final List<ColumnConfig> configs = new ArrayList<ColumnConfig>();
         final Map<String, Gene> genesByMGI = new HashMap<String, Gene>();
-        for (Gene gene: genes) {
+        for (Gene gene : genes) {
             genesByMGI.put(gene.getMgiId(), gene);
         }
 
@@ -1632,58 +1652,55 @@ public class QTLNarrowingEntryPoint implements EntryPoint {
         GridCellRenderer<GeneResult> formatInt =
                 new GridCellRenderer<GeneResult>() {
 
-            public String render(GeneResult model, String property, 
-                    ColumnData config, int rowIndex, int colIndex,
-                    ListStore<GeneResult> qtlList, Grid<GeneResult> grid) {
-                int val = (Integer) model.get(property);
+                    public String render(GeneResult model, String property,
+                            ColumnData config, int rowIndex, int colIndex,
+                            ListStore<GeneResult> qtlList, Grid<GeneResult> grid) {
+                        int val = (Integer) model.get(property);
 
-                return countFmt.format(val);
-            }
-        };
+                        return countFmt.format(val);
+                    }
+                };
         GridCellRenderer<GeneResult> formatMean =
                 new GridCellRenderer<GeneResult>() {
 
-            public String render(GeneResult model, String property, 
-                    ColumnData config, int rowIndex, int colIndex,
-                    ListStore<GeneResult> qtlList, Grid<GeneResult> grid) {
-                double val = (Double) model.get(property);
-                String result = "";
-                if (Double.isNaN(val)) {
-                    //result = "NA";
-                    result = "";
-                    //result = meanFmt.format(0.0);
+                    public String render(GeneResult model, String property,
+                            ColumnData config, int rowIndex, int colIndex,
+                            ListStore<GeneResult> qtlList, Grid<GeneResult> grid) {
+                        double val = (Double) model.get(property);
+                        String result = "";
+                        if (Double.isNaN(val)) {
+                            //result = "NA";
+                            result = "";
+                            //result = meanFmt.format(0.0);
 
-                }
-                else {
-                    result = meanFmt.format(val);
-                }
+                        } else {
+                            result = meanFmt.format(val);
+                        }
 
-                return result;
-            }
-        };
+                        return result;
+                    }
+                };
         GridCellRenderer<GeneResult> formatPVal =
                 new GridCellRenderer<GeneResult>() {
 
-            public String render(GeneResult model, String property, 
-                    ColumnData config, int rowIndex, int colIndex,
-                    ListStore<GeneResult> qtlList, Grid<GeneResult> grid) {
-                double val = (Double) model.get(property);
-                String result = "";
-                if (val < 0.0001 && val != 0.0) {
-                    result = "< 0.0001";
-                }
-                else if (Double.isNaN(val)) {
-                    //result = "NA";
-                    result = "";
-                    //result = pvalFmt.format(0.0);
-                }
-                else {
-                    result = pvalFmt.format(val);
-                }
+                    public String render(GeneResult model, String property,
+                            ColumnData config, int rowIndex, int colIndex,
+                            ListStore<GeneResult> qtlList, Grid<GeneResult> grid) {
+                        double val = (Double) model.get(property);
+                        String result = "";
+                        if (val < 0.0001 && val != 0.0) {
+                            result = "< 0.0001";
+                        } else if (Double.isNaN(val)) {
+                            //result = "NA";
+                            result = "";
+                            //result = pvalFmt.format(0.0);
+                        } else {
+                            result = pvalFmt.format(val);
+                        }
 
-                return result;
-            }
-        };
+                        return result;
+                    }
+                };
 
         column = new ColumnConfig();
         column.setId("start");
@@ -1713,11 +1730,11 @@ public class QTLNarrowingEntryPoint implements EntryPoint {
                     ListStore<GeneResult> store, Grid<GeneResult> grid) {
                 int val = (Integer) model.getNumsnps();
                 String fmtVal = countFmt.format(val);
-                GWT.log("IN NumSNPs Renderer Val = "  + fmtVal);
+                GWT.log("IN NumSNPs Renderer Val = " + fmtVal);
 
                 String html =
-                        "<span qtitle='SNPs' qtip='Click cell for list of " + 
-                        fmtVal + " SNPs within gene'>" + fmtVal + "</span>";
+                        "<span qtitle='SNPs' qtip='Click cell for list of "
+                        + fmtVal + " SNPs within gene'>" + fmtVal + "</span>";
                 return html;
             }
         });
@@ -1758,25 +1775,25 @@ public class QTLNarrowingEntryPoint implements EntryPoint {
                 //boolean m1Folder = m1 instanceof GeneResult;
                 //boolean m2Folder = m2 instanceof GeneResult;
 
-                if (property != null && (property.equals("hrmean") ||
-                        property.equals("lrmean") ||
-                        property.equals("pvalue"))) {
-                    if (((Double)g1.get(property)).isNaN() &&
-                            !((Double) g2.get(property)).isNaN()) {
+                if (property != null && (property.equals("hrmean")
+                        || property.equals("lrmean")
+                        || property.equals("pvalue"))) {
+                    if (((Double) g1.get(property)).isNaN()
+                            && !((Double) g2.get(property)).isNaN()) {
                         return 1;
-                    } else if (!((Double) g1.get(property)).isNaN() &&
-                            ((Double)g2.get(property)).isNaN()) {
+                    } else if (!((Double) g1.get(property)).isNaN()
+                            && ((Double) g2.get(property)).isNaN()) {
                         return -1;
-                    } else if (((Double)g1.get(property)).isNaN() &&
-                            ((Double) g2.get(property)).isNaN()) {
+                    } else if (((Double) g1.get(property)).isNaN()
+                            && ((Double) g2.get(property)).isNaN()) {
                         return 0;
                     }
                 }
                 /*
                 if (m1Folder && !m2Folder) {
-                    return -1;
+                return -1;
                 } else if (!m1Folder && m2Folder) {
-                    return 1;
+                return 1;
                 }*/
 
                 return super.compare(store, g1, g2, property);
@@ -1845,7 +1862,7 @@ public class QTLNarrowingEntryPoint implements EntryPoint {
 
                     if (snps.size() != 0) {
 
-                        Grid snpGrid;
+                        final Grid snpGrid;
                         //  Threw in try block because of problems
                         //  occuring with suspected uncaught exceptions
                         try {
@@ -1858,6 +1875,14 @@ public class QTLNarrowingEntryPoint implements EntryPoint {
                             d.setButtons(Dialog.CLOSE);
                             d.setBodyBorder(false);
                             d.setHeading("QTL Narrowing Results: SNPs within Gene " + gene.getMgiId());
+                            d.getHeader().addTool(new ToolButton("x-tool-save",
+                                    new SelectionListener<IconButtonEvent>() {
+
+                                        @Override
+                                        public void componentSelected(IconButtonEvent ce) {
+                                            exportListStore(snpGrid.getStore());
+                                        }
+                                    }));
                             d.getHeader().addTool(new ToolButton("x-tool-help",
                                     new SelectionListener<IconButtonEvent>() {
 
@@ -1976,20 +2001,19 @@ public class QTLNarrowingEntryPoint implements EntryPoint {
             Integer position = snp.getBPPosition();
             Character hrBase = snp.getHighRespondingBaseValue();
             Character lrBase = snp.getLowRespondingBaseValue();
-            
+
             List<Integer> annotations = snp.getSnpAnnotations();
             if (annotations != null) {
-                for (Integer i:annotations) {
+                for (Integer i : annotations) {
                     String annotation = snpAnnotLookup.get(i);
 
-                    SnpResult snpResult = new SnpResult(rsNumber,snpId, idSource,
+                    SnpResult snpResult = new SnpResult(rsNumber, snpId, idSource,
                             cgdSnpId, position.intValue(), annotation,
                             hrBase, lrBase);
                     //  add to liststore
                     snpList.add(snpResult);
                 }
-            }
-            else {
+            } else {
 
                 SnpResult snpResult = new SnpResult(rsNumber, snpId, idSource,
                         cgdSnpId, position.intValue(), "", hrBase, lrBase);
@@ -2013,7 +2037,7 @@ public class QTLNarrowingEntryPoint implements EntryPoint {
         return grid;
     }
 
-    private Grid initPhenoSearchTable(List<Map<String,String>> qtls) {
+    private Grid initPhenoSearchTable(List<Map<String, String>> qtls) {
         final List<ColumnConfig> configs = new ArrayList<ColumnConfig>();
         final CheckBoxSelectionModel<PhenoSearchResult> sm =
                 new CheckBoxSelectionModel<PhenoSearchResult>();
@@ -2024,21 +2048,22 @@ public class QTLNarrowingEntryPoint implements EntryPoint {
         GridCellRenderer<PhenoSearchResult> formatInt =
                 new GridCellRenderer<PhenoSearchResult>() {
 
-            public String render(PhenoSearchResult model, String property,
-                    ColumnData config, int rowIndex, int colIndex,
-                    ListStore<PhenoSearchResult> qtlList,
-                    Grid<PhenoSearchResult> grid) {
-                int val = 0;
-                if (property.equals("start"))
-                    val = model.getStart();
-                else if (property.equals("end"))
-                    val = model.getEnd();
-                else
-                    val = (Integer) model.get(property);
+                    public String render(PhenoSearchResult model, String property,
+                            ColumnData config, int rowIndex, int colIndex,
+                            ListStore<PhenoSearchResult> qtlList,
+                            Grid<PhenoSearchResult> grid) {
+                        int val = 0;
+                        if (property.equals("start")) {
+                            val = model.getStart();
+                        } else if (property.equals("end")) {
+                            val = model.getEnd();
+                        } else {
+                            val = (Integer) model.get(property);
+                        }
 
-                return intFmt.format(val);
-            }
-        };
+                        return intFmt.format(val);
+                    }
+                };
 
         //  first Column is the QTL ID
         ColumnConfig column = new ColumnConfig();
@@ -2147,11 +2172,10 @@ public class QTLNarrowingEntryPoint implements EntryPoint {
                 }
                 return 0;
             }
-
         });
 
 
-        for (Map<String,String> qtl : qtls) {
+        for (Map<String, String> qtl : qtls) {
             PhenoSearchResult psResult = new PhenoSearchResult(qtl);
             qtlList.add(psResult);
         }
@@ -2172,7 +2196,6 @@ public class QTLNarrowingEntryPoint implements EntryPoint {
         return grid;
     }
 
-
     private void clear() {
         //  TODO: Turn off until mgi phenotype searching fixed.
         this.mgiTextBox.setText("");
@@ -2189,7 +2212,7 @@ public class QTLNarrowingEntryPoint implements EntryPoint {
         this.uploadButton.setEnabled(true);
 
         EditorGrid qtlTable = (EditorGrid) this.qtlPanel.getWidget(0);
-        ListStore<UIQTL> qtlList = (ListStore<UIQTL>)qtlTable.getStore();
+        ListStore<UIQTL> qtlList = (ListStore<UIQTL>) qtlTable.getStore();
         qtlList.removeAll();
 
         gexRadio0.setValue(true);
@@ -2202,9 +2225,9 @@ public class QTLNarrowingEntryPoint implements EntryPoint {
         clearButton.setEnabled(true);
 
         resultsPanel.hide();
-        Grid summaryTable = (Grid)resultsPanel.getWidget(0);
+        Grid summaryTable = (Grid) resultsPanel.getWidget(0);
         ListStore<QTLResult> summaryList =
-                        (ListStore<QTLResult>) summaryTable.getStore();
+                (ListStore<QTLResult>) summaryTable.getStore();
         summaryList.removeAll();
         if (this.resultMap != null) {
             this.resultMap = null;
@@ -2238,190 +2261,311 @@ public class QTLNarrowingEntryPoint implements EntryPoint {
         }
 
     }
+
+    private void exportListStore(ListStore ls) {
+        List<BaseModel> models = ls.getModels();
+        String[] headers = new String[0];
+        List<String[]> rows = new ArrayList<String[]>();
+        boolean first = true;
+        for (BaseModel model : models) {
+            if (first) {
+                Collection<String> headerCollection = model.getPropertyNames();
+                headers = headerCollection.toArray(new String[0]);
+                rows.add(headers);
+                first = false;
+            }
+            List<String> columns = new ArrayList<String>();
+            for (String name: headers) {
+                Object col = model.get(name);
+                if (col instanceof Integer) {
+                    String foo = ((Integer)col).toString();
+                    columns.add(foo);
+                } else if (col instanceof Double) {
+                    String foo = ((Double)col).toString();
+                    columns.add(foo);
+                } else if (col instanceof Character) {
+                    String foo = ((Character)col).toString();
+                    columns.add(foo);
+                } else {
+                    columns.add((String)model.get(name));
+                }
+            }
+            rows.add(columns.toArray(new String[0]));
+        }
+
+        qtlService.exportTable(rows, new AsyncCallback<Boolean>() {
+
+                public void onFailure(Throwable caught) {
+                    System.out.println("IN FAIL CASE Export Table");
+                    // Show the RPC error message to the user
+                    String textForMessage = caught.getMessage();
+                    dialogBox = MessageBox.alert("QTL Narrowing",
+                            textForMessage,
+                            new Listener<MessageBoxEvent>() {
+
+                                public void handleEvent(MessageBoxEvent mbe) {
+                                    dialogBox.close();
+                                }
+                            });
+
+
+                    dialogBox.show();
+                }
+
+                public void onSuccess(Boolean result) {
+                    System.out.println("IN SUCCESS CASE CLEAR ANALYSIS");
+                    System.out.println("Was there anything to save? " +
+                            result.toString());
+
+                        final Dialog simple = new Dialog();
+                        simple.setHeading("Download Link");
+                        simple.setButtons(Dialog.OK);
+                        simple.setBodyStyleName("pad-text");
+                        simple.add(new HTML(this.getCsvFileLink()));
+                        //simple.addText();
+                        simple.setScrollMode(Scroll.AUTO);
+                        simple.setHideOnButtonClick(true);
+                        simple.show();
+
+                }
+
+                /**
+                 * Get the link that should be used for downloading the CSV file
+                 * @return  the CSV file
+                 */
+                private String getCsvFileLink() {
+                    String csvUrl = "restful/query-results/latest-query.csv";
+                    return "<a href=\"" + csvUrl + "\">"
+                        + "Download Results Table (Comma-Separated Values)</a>";
+                }
+            });
+
+
+    }
+
+
 }
 
 class UIQTL extends BaseModel {
+
     public UIQTL() {
     }
+
     public UIQTL(String qtlid, String phenotype, String species, String hrStrain,
             String lrStrain, String chr, int start, int end) {
-        set("qtlid",qtlid);
-        set("phenotype",phenotype);
-        set("species",species);
-        set("hrstrain",hrStrain);
-        set("lrstrain",lrStrain);
-        set("chr",chr);
-        set("qtlstart",start);
-        set("qtlend",end);
+        set("qtlid", qtlid);
+        set("phenotype", phenotype);
+        set("species", species);
+        set("hrstrain", hrStrain);
+        set("lrstrain", lrStrain);
+        set("chr", chr);
+        set("qtlstart", start);
+        set("qtlend", end);
     }
 
     public String getQtlid() {
-        return (String)get("qtlid");
+        return (String) get("qtlid");
     }
+
     public String getPhenotype() {
-        return (String)get("phenotype");
+        return (String) get("phenotype");
     }
+
     public String getSpecies() {
-        return (String)get("species");
+        return (String) get("species");
     }
+
     public String getHrstrain() {
-        return (String)get("hrstrain");
+        return (String) get("hrstrain");
     }
+
     public String getLrstrain() {
-        return (String)get("lrstrain");
+        return (String) get("lrstrain");
     }
+
     public String getChr() {
-        return (String)get("chr");
+        return (String) get("chr");
     }
+
     public int getQtlstart() {
-        Integer qtlstart = (Integer)get("qtlstart");
+        Integer qtlstart = (Integer) get("qtlstart");
         return qtlstart.intValue();
     }
+
     public int getQtlend() {
-        Integer qtlend = (Integer)get("qtlend");
+        Integer qtlend = (Integer) get("qtlend");
         return qtlend.intValue();
     }
 }
 
 class QTLResult extends BaseModel {
+
     public QTLResult() {
     }
+
     public QTLResult(String chr, String range, int numQtls, int totalSnps,
             int numSnps, int numGenes) {
-        set("chr",chr);
-        set("range",range);
-        set("numqtls",numQtls);
+        set("chr", chr);
+        set("range", range);
+        set("numqtls", numQtls);
         set("totalsnps", totalSnps);
-        set("numsnps",numSnps);
-        set("numgenes",numGenes);
+        set("numsnps", numSnps);
+        set("numgenes", numGenes);
     }
 
     public String getChr() {
-        return (String)get("chr");
+        return (String) get("chr");
     }
+
     public String getRange() {
-        return (String)get("range");
+        return (String) get("range");
     }
+
     public int getNumqtls() {
-        Integer numqtls = (Integer)get("numqtls");
+        Integer numqtls = (Integer) get("numqtls");
         return numqtls.intValue();
     }
+
     public int getTotalsnps() {
-        Integer totalsnps = (Integer)get("totalsnps");
+        Integer totalsnps = (Integer) get("totalsnps");
         return totalsnps.intValue();
     }
+
     public int getNumsnps() {
-        Integer numsnps = (Integer)get("numsnps");
+        Integer numsnps = (Integer) get("numsnps");
         return numsnps.intValue();
     }
+
     public int getNumgenes() {
-        Integer numgenes = (Integer)get("numgenes");
+        Integer numgenes = (Integer) get("numgenes");
         return numgenes.intValue();
     }
 }
 
 class GeneResult extends BaseModel {
+
     public GeneResult() {
     }
+
     public GeneResult(String mgiid, String symbol, String name, String chr, int start,
             int end, int numSnps, double hrmean, double lrmean, double pvalue) {
-        set("symbol",symbol);
-        set("mgiid",mgiid);
+        set("symbol", symbol);
+        set("mgiid", mgiid);
         set("name", name);
         set("chr", chr);
         set("start", start);
         set("end", end);
         set("numsnps", numSnps);
-        set("hrmean",hrmean);
-        set("lrmean",lrmean);
-        set("pvalue",pvalue);
+        set("hrmean", hrmean);
+        set("lrmean", lrmean);
+        set("pvalue", pvalue);
     }
 
     public String getSymbol() {
-        return (String)get("symbol");
+        return (String) get("symbol");
     }
+
     public String getMgiid() {
-        return (String)get("mgiid");
+        return (String) get("mgiid");
     }
+
     public String getName() {
-        return (String)get("name");
+        return (String) get("name");
     }
+
     public String getChr() {
-        return (String)get("name");
+        return (String) get("name");
     }
+
     public int getStart() {
-        Integer start = (Integer)get("start");
+        Integer start = (Integer) get("start");
         return start.intValue();
     }
+
     public int getEnd() {
-        Integer end = (Integer)get("end");
+        Integer end = (Integer) get("end");
         return end.intValue();
     }
+
     public int getNumsnps() {
-        Integer numsnps = (Integer)get("numsnps");
+        Integer numsnps = (Integer) get("numsnps");
         return numsnps.intValue();
     }
+
     public double getHrmean() {
-        Double hrmean = (Double)get("hrmean");
+        Double hrmean = (Double) get("hrmean");
         return hrmean.doubleValue();
     }
+
     public double getLrmean() {
-        Double lrmean = (Double)get("lrmean");
+        Double lrmean = (Double) get("lrmean");
         return lrmean.doubleValue();
     }
+
     public double getPvalue() {
-        Double pvalue = (Double)get("pvalue");
+        Double pvalue = (Double) get("pvalue");
         return pvalue.doubleValue();
     }
 }
 
 class SnpResult extends BaseModel {
+
     public SnpResult() {
     }
+
     public SnpResult(String rsNumber, String snpid, String idsource, int cgdSnpId, int position,
             String annotation, char HRBase, char LRBase) {
         set("position", position);
         set("cgdsnpid", cgdSnpId);
         set("hrbase", HRBase);
         set("lrbase", LRBase);
-        set("rsnumber",rsNumber);
-        set("snpid",snpid);
+        set("rsnumber", rsNumber);
+        set("snpid", snpid);
         set("idsource", idsource);
         set("annotation", annotation);
     }
 
     public int getPosition() {
-        Integer position = (Integer)get("position");
+        Integer position = (Integer) get("position");
         return position.intValue();
     }
+
     public int getCgdsnpid() {
-        Integer cgdsnpid = (Integer)get("cgdsnpid");
+        Integer cgdsnpid = (Integer) get("cgdsnpid");
         return cgdsnpid.intValue();
     }
+
     public char getHrbase() {
-        return (Character)get("hrbase");
+        return (Character) get("hrbase");
     }
+
     public char getLrbase() {
-        return (Character)get("Lrbase");
+        return (Character) get("Lrbase");
     }
+
     public String getRsnumber() {
-        return (String)get("rsnumber");
+        return (String) get("rsnumber");
     }
+
     public String getSnpid() {
-        return (String)get("snpid");
+        return (String) get("snpid");
     }
+
     public String getIdsource() {
-        return (String)get("idsource");
+        return (String) get("idsource");
     }
+
     public String getAnnotation() {
-        return (String)get("annotation");
+        return (String) get("annotation");
     }
 }
 
 class PhenoSearchResult extends BaseModel {
+
     public PhenoSearchResult() {
     }
-    public PhenoSearchResult(Map<String,String> qtl) {
+
+    public PhenoSearchResult(Map<String, String> qtl) {
         set("qtlid", qtl.get("qtlid"));
         set("chr", qtl.get("chr"));
         set("start", qtl.get("start"));
@@ -2432,29 +2576,34 @@ class PhenoSearchResult extends BaseModel {
     }
 
     public String getQtlid() {
-        return (String)get("qtlid");
+        return (String) get("qtlid");
     }
+
     public String getChr() {
-        return (String)get("chr");
+        return (String) get("chr");
     }
+
     public int getStart() {
-        String start_string = (String)get("start");
+        String start_string = (String) get("start");
         Integer start = new Integer(start_string);
         return start.intValue();
     }
+
     public int getEnd() {
-        String end_string = (String)get("end");
+        String end_string = (String) get("end");
         Integer end = new Integer(end_string);
         return end.intValue();
     }
+
     public String getSymbol() {
-        return (String)get("symbol");
+        return (String) get("symbol");
     }
+
     public String getName() {
-        return (String)get("name");
+        return (String) get("name");
     }
+
     public String getTerms() {
-        return (String)get("terms");
+        return (String) get("terms");
     }
 }
-

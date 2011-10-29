@@ -48,5 +48,6 @@ public interface QTLService extends RemoteService{
     public Boolean clearAnalysis() throws Throwable;
     public List<Map<String,String>> searchPhenotypesForQTLs(String searchString) 
             throws Throwable;
+    public Boolean exportTable(List<String[]> rows) throws Throwable;
 
 }

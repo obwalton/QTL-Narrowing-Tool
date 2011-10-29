@@ -60,7 +60,8 @@ public class QTLServiceImpl extends RemoteServiceServlet implements
     //  These are all for the database stored version of the CGD SNPS
     private String driver = "com.mysql.jdbc.Driver";
     private static String db_protocol = "jdbc:mysql:";
-    private static String db_host = "cgd.jax.org";
+    private static String db_host = "cgddb.jax.org";
+    private static String db_port = "44444";
     private static String db_name = "cgdsnpdb";
     private static String db_user = "pup";
     private static String db_password = "puppass";
@@ -142,6 +143,8 @@ public class QTLServiceImpl extends RemoteServiceServlet implements
         if (db_protocol != null) QTLServiceImpl.db_protocol = db_protocol;
         String db_host = (String)context.getAttribute("db_host");
         if (db_host != null)  QTLServiceImpl.db_host = db_host;
+        String db_port = (String)context.getAttribute("db_port");
+        if (db_port != null)  QTLServiceImpl.db_port = db_port;
         String db_name = (String)context.getAttribute("db_name");
         if (db_name != null) QTLServiceImpl.db_name = db_name;
         String db_user = (String)context.getAttribute("db_user");
@@ -152,9 +155,9 @@ public class QTLServiceImpl extends RemoteServiceServlet implements
         //  Get our location function lookup
         /*  Must disable until port is opened in firewall
          *  WAITIN ON IT.... Unless running inside of firewall */
-        CGDSnpDB snpDb = new CGDSnpDB(QTLServiceImpl.db_host,
-                QTLServiceImpl.db_name, QTLServiceImpl.db_user,
-                QTLServiceImpl.db_password);
+        CGDSnpDB snpDb = new CGDSnpDB(QTLServiceImpl.db_host, 
+                QTLServiceImpl.db_port, QTLServiceImpl.db_name,
+                QTLServiceImpl.db_user, QTLServiceImpl.db_password);
         try {
             if (QTLServiceImpl.snpLocFuncs == null) {
                 QTLServiceImpl.snpLocFuncs = snpDb.getSNPLocFuncList();
@@ -313,9 +316,9 @@ public class QTLServiceImpl extends RemoteServiceServlet implements
 
             // Now get annotations to the SNPs
             // Need a CGDSnpDB object...
-            CGDSnpDB snpDb = new CGDSnpDB(QTLServiceImpl.db_host,
-                QTLServiceImpl.db_name, QTLServiceImpl.db_user,
-                QTLServiceImpl.db_password);
+            CGDSnpDB snpDb = new CGDSnpDB(QTLServiceImpl.db_host, 
+                    QTLServiceImpl.db_port, QTLServiceImpl.db_name,
+                    QTLServiceImpl.db_user, QTLServiceImpl.db_password);
 
             // This loop serves two purposes:
             // 1) use the cgd snp db to pull the annotations for snps per region
@@ -617,6 +620,13 @@ public class QTLServiceImpl extends RemoteServiceServlet implements
         return results;
 
     }
+
+    public Boolean exportTable(List<String[]> rows) {
+        HttpSession session = getSession();
+        session.setAttribute("LAST_TABLE", rows);
+        return true;
+    }
+
 
     /**
      * Returns the current session
