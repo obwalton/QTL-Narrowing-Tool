@@ -66,12 +66,16 @@ public class TableQueryResource
             List<String[]> table =
                     (List<String[]>)this.request.getSession().getAttribute(
                     "LAST_TABLE");
-            BaseModelToCsvStreamingOutput csvOutput = 
-                    new BaseModelToCsvStreamingOutput(table);
-            
+            String delim = (String)this.request.getSession().
+                    getAttribute("LAST_DELIM");
+            boolean header = (Boolean)this.request.getSession().
+                    getAttribute("LAST_HAS_HEAD");
+            BaseModelToCsvStreamingOutput csvOutput =
+                    new BaseModelToCsvStreamingOutput(table, delim, header);
+
             CacheControl noCache = new CacheControl();
             noCache.setNoCache(true);
-            
+
             return Response.ok(csvOutput, "text/csv").cacheControl(noCache).build();
         }
         catch(Exception ex)
@@ -82,5 +86,42 @@ public class TableQueryResource
             return null;
         }
     }
-    
+
+    /**
+     * Get a TXT of the latest query
+     * @return
+     *      the streaming output used to generate the CSV file
+     */
+    @GET
+    @Path("/latest-query.txt")
+    @Produces("text/csv")
+    public Response getLatestQueryTxt()
+    {
+        try
+        {
+            LOG.log(Level.INFO, "serving a request for TXT query results");
+            List<String[]> table =
+                    (List<String[]>)this.request.getSession().getAttribute(
+                    "LAST_TABLE");
+            String delim = (String)this.request.getSession().
+                    getAttribute("LAST_DELIM");
+            boolean header = (Boolean)this.request.getSession().
+                    getAttribute("LAST_HAS_HEAD");
+            BaseModelToCsvStreamingOutput csvOutput =
+                    new BaseModelToCsvStreamingOutput(table, delim, header);
+
+            CacheControl noCache = new CacheControl();
+            noCache.setNoCache(true);
+
+            return Response.ok(csvOutput, "text/csv").cacheControl(noCache).build();
+        }
+        catch(Exception ex)
+        {
+            LOG.log(Level.SEVERE,
+                    "failed to create IBS txt file",
+                    ex);
+            return null;
+        }
+    }
+
 }

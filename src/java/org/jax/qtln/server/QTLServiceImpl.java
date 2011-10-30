@@ -30,6 +30,8 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 import javax.servlet.ServletContext;
 import javax.servlet.ServletException;
 import javax.servlet.http.HttpServletRequest;
@@ -54,6 +56,8 @@ import org.jax.qtln.regions.SNP;
 @SuppressWarnings("serial")
 public class QTLServiceImpl extends RemoteServiceServlet implements
         QTLService {
+
+    private static boolean threaded = false;
 
     private String narrowingStatus = "Waiting";
 
@@ -109,6 +113,11 @@ public class QTLServiceImpl extends RemoteServiceServlet implements
         ServletContext context = this.getServletContext();
         String status = (String)context.getAttribute("SNP_INIT_STATUS");
         System.out.println("SNP INITIALIZATION = " + status);
+        String t = (String)context.getAttribute("threaded");
+        if ("1".equals(t))
+            QTLServiceImpl.threaded = true;
+        else
+            QTLServiceImpl.threaded = false;
         QTLServiceImpl.cgdSNPLookup =
                 (Map<String, SNPFile>)context.getAttribute("snpLookup");
         System.out.println("PROBE INITIALIZATION = " + 
@@ -306,8 +315,40 @@ public class QTLServiceImpl extends RemoteServiceServlet implements
             HaplotypeAnalyzer haplotypeAnalyzer = new HaplotypeAnalyzer(
                     this.cgdSNPLookup);
             try {
-                haplotypeAnalyzer.doAnalysis(regions);
-                System.out.println("after doAnalysis");
+                // TESTING threading for peformance improvement using the
+                // Executor framework...
+                System.out.println("STARTING HAPLOTYPE ANALYSIS AT " + System.currentTimeMillis());
+                if (threaded) {
+                    System.out.println("##### in threaded version of haplotype analysis...");
+                    //  The keys are chromsomes
+                    Set<String> keys = regions.keySet();
+
+                    ExecutorService executor = Executors.newFixedThreadPool(10);
+                    //  for each chromsome
+                    for (String key : keys) {
+                        //  for each region on the chromosome
+                        System.out.println("Getting SNPs for Chromosome " + key);
+
+                        for (Region region : regions.get(key)) {
+                            haplotypeAnalyzer.setChromosome(key);
+                            haplotypeAnalyzer.setRegion(region);
+                            executor.execute(haplotypeAnalyzer);
+                        }
+                    }
+                    // This will make the executor accept no new threads
+                    // and finish all existing threads in the queue
+                    executor.shutdown();
+                    // Wait until all threads are finish
+                    while (!executor.isTerminated()) {
+                    }
+                    System.out.println("Finished all threads");
+
+
+                } else {
+                    haplotypeAnalyzer.doAnalysis(regions);
+                    System.out.println("after doAnalysis");
+                }
+                System.out.println("FINISHED HAPLOTYPE ANALYSIS AT " + System.currentTimeMillis());
             } catch (Exception e) {
                 e.printStackTrace();
                 throw new SMSException(e.getMessage());
@@ -621,9 +662,12 @@ public class QTLServiceImpl extends RemoteServiceServlet implements
 
     }
 
-    public Boolean exportTable(List<String[]> rows) {
+    public Boolean exportTable(List<String[]> rows, String delimiter,
+            boolean header) {
         HttpSession session = getSession();
         session.setAttribute("LAST_TABLE", rows);
+        session.setAttribute("LAST_DELIM", delimiter);
+        session.setAttribute("LAST_HAS_HEAD", header);
         return true;
     }
 

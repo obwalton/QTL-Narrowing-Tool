@@ -425,6 +425,11 @@ public class QTLServletContextListener implements ServletContextListener {
 
         sc.log("Assigning Properties...");
 
+        if (p.containsKey("threaded")) {
+            sc.setAttribute("threaded", p.getProperty("threaded"));
+        } else {
+            sc.setAttribute("threaded", "0");
+        }
         if (p.containsKey("db_driver")) {
             this.driver = p.getProperty("db_driver");
             sc.setAttribute("db_driver", this.driver);

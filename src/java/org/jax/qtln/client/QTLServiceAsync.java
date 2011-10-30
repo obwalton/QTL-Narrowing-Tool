@@ -47,7 +47,7 @@ public interface QTLServiceAsync {
     public void clearAnalysis(AsyncCallback<Boolean> callback);
     public void searchPhenotypesForQTLs(String searchString, 
             AsyncCallback<List<Map<String,String>>> callback);
-    public void exportTable(List<String[]> rows,
+    public void exportTable(List<String[]> rows, String delimiter, boolean header,
             AsyncCallback<Boolean> callback);
 
 }

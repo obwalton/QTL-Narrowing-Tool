@@ -49,6 +49,7 @@ import com.extjs.gxt.ui.client.widget.grid.ColumnModel;
 import com.extjs.gxt.ui.client.widget.grid.EditorGrid;
 import com.extjs.gxt.ui.client.widget.grid.Grid;
 import com.extjs.gxt.ui.client.widget.grid.GridCellRenderer;
+import com.extjs.gxt.ui.client.widget.grid.GridSelectionModel;
 import com.extjs.gxt.ui.client.widget.layout.FitLayout;
 import com.extjs.gxt.ui.client.widget.layout.MarginData;
 import com.extjs.gxt.ui.client.widget.tips.QuickTip;
@@ -309,21 +310,56 @@ public class QTLNarrowingEntryPoint implements EntryPoint {
                 strains = results;
 
                 final EditorGrid qtlTable = initEditableQTLTable();
+                qtlTable.setClicksToEdit(EditorGrid.ClicksToEdit.TWO);
+                qtlTable.setSelectionModel(new GridSelectionModel<UIQTL>());
 
                 qtlPanel.setBodyBorder(false);
                 qtlPanel.setHeading("QTL List");
                 qtlPanel.setButtonAlign(HorizontalAlignment.CENTER);
                 qtlPanel.setLayout(new FitLayout());
                 qtlPanel.setSize(750, 300);
-                qtlPanel.getHeader().addTool(new ToolButton("x-tool-save",
+                ToolButton insert = new ToolButton("x-tool-plus",
                         new SelectionListener<IconButtonEvent>() {
 
                             @Override
                             public void componentSelected(IconButtonEvent ce) {
-                                exportListStore(qtlTable.getStore());
+                                ListStore<UIQTL> store = qtlTable.getStore();
+                                UIQTL qtl = new UIQTL("", "", "Mouse", "unknown",
+                                        "unknown", "", 0, 0);
+                                qtlTable.stopEditing();
+                                store.insert(qtl,0);
+                                qtlTable.startEditing(0, 0);
                             }
-                        }));
-                qtlPanel.getHeader().addTool(new ToolButton("x-tool-help",
+                        });
+                insert.setToolTip("Insert");
+                qtlPanel.getHeader().addTool(insert);
+                
+                ToolButton delete = new ToolButton("x-tool-minus",
+                        new SelectionListener<IconButtonEvent>() {
+
+                            @Override
+                            public void componentSelected(IconButtonEvent ce) {
+                                ListStore<UIQTL> store = qtlTable.getStore();
+                                store.remove((UIQTL)qtlTable.getSelectionModel().getSelectedItem());
+                            }
+                        });
+                delete.setToolTip("Delete");
+                qtlPanel.getHeader().addTool(delete);
+
+                ToolButton export = new ToolButton("x-tool-save",
+                        new SelectionListener<IconButtonEvent>() {
+
+                            @Override
+                            public void componentSelected(IconButtonEvent ce) {
+                                if (qtlTable.getStore().getCount() > 0) {
+                                    exportListStore(qtlTable.getStore(),"TAB", false);
+                                }
+                            }
+                        });
+                export.setToolTip("Export");
+                qtlPanel.getHeader().addTool(export);
+
+                ToolButton help = new ToolButton("x-tool-help",
                         new SelectionListener<IconButtonEvent>() {
 
                             @Override
@@ -337,8 +373,9 @@ public class QTLNarrowingEntryPoint implements EntryPoint {
                                 w.show();
 
                             }
-                        }));
-
+                        });
+                help.setToolTip("Help");
+                qtlPanel.getHeader().addTool(help);
 
                 qtlPanel.add(qtlTable);
 
@@ -2263,6 +2300,10 @@ public class QTLNarrowingEntryPoint implements EntryPoint {
     }
 
     private void exportListStore(ListStore ls) {
+        exportListStore(ls, "COMMA", true);
+    }
+
+    private void exportListStore(ListStore ls, String delim, boolean header) {
         List<BaseModel> models = ls.getModels();
         String[] headers = new String[0];
         List<String[]> rows = new ArrayList<String[]>();
@@ -2292,8 +2333,9 @@ public class QTLNarrowingEntryPoint implements EntryPoint {
             }
             rows.add(columns.toArray(new String[0]));
         }
+        final String delimiter = delim;
 
-        qtlService.exportTable(rows, new AsyncCallback<Boolean>() {
+        qtlService.exportTable(rows, delim, header, new AsyncCallback<Boolean>() {
 
                 public void onFailure(Throwable caught) {
                     System.out.println("IN FAIL CASE Export Table");
@@ -2319,7 +2361,7 @@ public class QTLNarrowingEntryPoint implements EntryPoint {
 
                         final Dialog simple = new Dialog();
                         simple.setHeading("Download Link");
-                        simple.setButtons(Dialog.OK);
+                        simple.setButtons(Dialog.CLOSE);
                         simple.setBodyStyleName("pad-text");
                         simple.add(new HTML(this.getCsvFileLink()));
                         //simple.addText();
@@ -2334,9 +2376,13 @@ public class QTLNarrowingEntryPoint implements EntryPoint {
                  * @return  the CSV file
                  */
                 private String getCsvFileLink() {
-                    String csvUrl = "restful/query-results/latest-query.csv";
-                    return "<a href=\"" + csvUrl + "\">"
-                        + "Download Results Table (Comma-Separated Values)</a>";
+                    String url;
+                    if (delimiter.equals("COMMA"))
+                        url = "restful/query-results/latest-query.csv";
+                    else
+                        url = "restful/query-results/latest-query.txt";
+                    return "<a href=\"" + url + "\">"
+                        + "Download Results Table</a>";
                 }
             });
 

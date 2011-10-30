@@ -30,6 +30,8 @@ import org.jax.util.io.FlatFileWriter;
 class BaseModelToCsvStreamingOutput implements StreamingOutput
 {
     private final List<String[]> model;
+    private final String delimiter;
+    private final boolean include_header;
     
     
     /**
@@ -37,9 +39,12 @@ class BaseModelToCsvStreamingOutput implements StreamingOutput
      * @param model
      *          the model to use
      */
-    public BaseModelToCsvStreamingOutput(List<String[]> table)
+    public BaseModelToCsvStreamingOutput(List<String[]> table, String delim,
+            boolean header)
     {
         this.model = table;
+        this.delimiter = delim;
+        this.include_header = header;
     }
 
     /**
@@ -49,14 +54,22 @@ class BaseModelToCsvStreamingOutput implements StreamingOutput
     throws IOException
     {
         System.out.println("Writing out CSV");
-        FlatFileWriter flatFile = new FlatFileWriter(
+        FlatFileWriter flatFile;
+        if ("TAB".equals(this.delimiter))
+             flatFile = new FlatFileWriter(
+                new OutputStreamWriter(os),
+                CommonFlatFileFormat.UNQUOTED_TAB_DELIMITED_UNIX);
+        else
+             flatFile = new FlatFileWriter(
                 new OutputStreamWriter(os),
                 CommonFlatFileFormat.CSV_RFC_4180);
+
 
         // write the header
 
         String[] tableHeader = this.model.get(0);
-        flatFile.writeRow(tableHeader);
+        if (this.include_header)
+            flatFile.writeRow(tableHeader);
 
         // write the data
         writeResultsToFlatFile(this.model,

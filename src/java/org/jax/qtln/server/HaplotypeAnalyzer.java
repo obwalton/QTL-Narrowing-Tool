@@ -56,10 +56,13 @@ import org.jax.qtln.db.CGDSnpDB;
  *
  * @author dow
  */
-public class HaplotypeAnalyzer {
+public class HaplotypeAnalyzer implements Runnable {
     private List strains;
     private Map<String, SNPFile> cgdSNPLookup;
     private CGDSnpDB snpLookup;
+
+    private String chromosome;
+    private Region region;
 
     /**
      * Constructor for HaplotypeAnalyzer
@@ -95,7 +98,6 @@ public class HaplotypeAnalyzer {
         System.out.println("In HaplotypeAnalyzer.doAnalysis...");
         //  The keys are chromsomes
         Set<String> keys = regions.keySet();
-        Runtime rt = Runtime.getRuntime();
         //  for each chromsome
         for (String key : keys) {
             //  for each region on the chromosome
@@ -107,6 +109,22 @@ public class HaplotypeAnalyzer {
         }
 
     }
+    
+    public void setChromosome(String chr) {
+        this.chromosome = chr;
+    }
+    
+    public void setRegion(Region r) {
+        this.region = r;
+    }
+
+    public void run() {
+        System.out.println("Threaded analysis of " + region.toString());
+        region = getSnpsInRegion(chromosome, (OverlappingRegion)region);
+
+    }
+
+
 
     /**
      * Finds all of the SNPS in our region.
