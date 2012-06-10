@@ -25,6 +25,7 @@ import com.google.gwt.user.server.rpc.RemoteServiceServlet;
 import java.sql.SQLException;
 import java.text.DecimalFormat;
 import java.util.ArrayList;
+import java.util.Date;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
@@ -49,6 +50,7 @@ import org.jax.qtln.regions.OverlappingRegion;
 import org.jax.qtln.regions.QTL;
 import org.jax.qtln.regions.ReturnRegion;
 import org.jax.qtln.regions.SNP;
+import org.jax.qtln.sanger.SangerSNPFile;
 
 /**
  * The server side implementation of the RPC service.
@@ -96,6 +98,8 @@ public class QTLServiceImpl extends RemoteServiceServlet implements
     // cgdsnpdb _loc_func_key -> location/function description
     private static Map<Integer,String> snpLocFuncs;
     private static SolrServer solrServer;
+    
+    private static SangerSNPFile sangerSNPFile;
 
     /** init
      * Runs inititalizations that must occur before methods of servlet are run.
@@ -140,8 +144,12 @@ public class QTLServiceImpl extends RemoteServiceServlet implements
                 (Map<String, List<String>>)context.getAttribute("liverLowFatStrainLookup");
         QTLServiceImpl.liverHighFatStrainLookup =
                 (Map<String, List<String>>)context.getAttribute("liverHighFatStrainLookup");
-         QTLServiceImpl.solrServer =
+        QTLServiceImpl.solrServer =
                 (SolrServer)context.getAttribute("solrServer");
+        System.out.println("SANGER INITIALIZATION = " + 
+                (String) context.getAttribute("SANGER_INIT_STATUS"));
+        QTLServiceImpl.sangerSNPFile =
+                (SangerSNPFile)context.getAttribute("sangerSNPs");
        
         
         //  If any of these were not provided with user properties, we'll
@@ -210,30 +218,57 @@ public class QTLServiceImpl extends RemoteServiceServlet implements
      * work with.
      * @throws SMSException
      */
-    public String[] getStrains()
+    public Map<String,String[]> getStrains()
             throws SMSException
     {
+        Map<String, String[]> strains = new HashMap<String,String[]>();
         System.out.println ("IN getStrains");
-        String[] strains = new String[0];
+        String[] sanger_strains = new String[0];
+        String[] cgd_imputed_strains = new String[0];
+        boolean found_strains = false;
         if (QTLServiceImpl.cgdSNPLookup != null) {
             //  Only need one SNPFile as the strain list
             //  should be the same in all
             Set keys = this.cgdSNPLookup.keySet();
             for (Iterator i = keys.iterator(); i.hasNext();) {
                 String key = (String)i.next();
-                System.out.println("getting strains from " + key);
                 SNPFile snpf = this.cgdSNPLookup.get(key);
-                strains = snpf.getStrains();
+                cgd_imputed_strains = snpf.getStrains();
+                System.out.println("There are " + cgd_imputed_strains.length + " imputed strains.");
+                found_strains = true;
                 break;
             }
         } else {
-            System.out.println("NO LOOKUP AVAILABLE");
+            System.out.println("NO CGD IMPUTED SNP LOOKUP AVAILABLE");
+        }
+        
+        System.out.println("Now get Sanger Strains...");
+        
+        if (QTLServiceImpl.sangerSNPFile != null) {
+            List<String> strain_list = QTLServiceImpl.sangerSNPFile.getStrains();
+            System.out.println("There are " + strain_list.size() + " Sanger strains.");
+            sanger_strains = strain_list.toArray(new String[0]);
+            found_strains = true;
+        }
+        
+        if (found_strains) {
+            if (sanger_strains.length > 0) {
+                strains.put("sanger", sanger_strains);
+                System.out.println("Returning " + sanger_strains.length + 
+                        " sanger strains");
+            }
+            if (cgd_imputed_strains.length > 0) {
+                strains.put("cgd_imputed", cgd_imputed_strains);
+                System.out.println("Returning " + cgd_imputed_strains.length + 
+                        " cgd imputed strains");
+
+            }
+        } else {
             throw new SMSException("No strains found.  Initialization must " +
                     "have been unsuccessful.");
         }
-        System.out.println("Returning " + strains.length + " strains");
+        
         return strains;
-
     }
 
 
@@ -283,7 +318,7 @@ public class QTLServiceImpl extends RemoteServiceServlet implements
      * @throws SMSException
      */
     public Map<String,List<Map<String,Object>>> narrowQTLs(List<List> qtls,
-            boolean doGEX, String gexExp)
+            boolean doGEX, String gexExp, String snpSet)
             throws SMSException {
         try {
             System.out.println("In narrowQTLs");
@@ -312,12 +347,18 @@ public class QTLServiceImpl extends RemoteServiceServlet implements
             //  Now do haplotype mapping
             this.setNarrowingStatus("Doing haplotype analysis of Mouse regions...");
             System.out.println("...doing Haplotype Analysis");
-            HaplotypeAnalyzer haplotypeAnalyzer = new HaplotypeAnalyzer(
-                    this.cgdSNPLookup);
+            HaplotypeAnalyzer haplotypeAnalyzer = null;
+            if (snpSet.equals("cgd_imputed")) {
+                haplotypeAnalyzer = new HaplotypeAnalyzer(this.cgdSNPLookup);
+            } else if (snpSet.equals("sanger")) {
+                
+                haplotypeAnalyzer = new HaplotypeAnalyzer(this.sangerSNPFile);
+            }
             try {
                 // TESTING threading for peformance improvement using the
                 // Executor framework...
-                System.out.println("STARTING HAPLOTYPE ANALYSIS AT " + System.currentTimeMillis());
+                Date now = new Date(System.currentTimeMillis());
+                System.out.println("STARTING HAPLOTYPE ANALYSIS AT " + now.toString());
                 if (threaded) {
                     System.out.println("##### in threaded version of haplotype analysis...");
                     //  The keys are chromsomes
@@ -348,7 +389,8 @@ public class QTLServiceImpl extends RemoteServiceServlet implements
                     haplotypeAnalyzer.doAnalysis(regions);
                     System.out.println("after doAnalysis");
                 }
-                System.out.println("FINISHED HAPLOTYPE ANALYSIS AT " + System.currentTimeMillis());
+                now = new Date(System.currentTimeMillis());
+                System.out.println("FINISHED HAPLOTYPE ANALYSIS AT " + now.toString());
             } catch (Exception e) {
                 e.printStackTrace();
                 throw new SMSException(e.getMessage());

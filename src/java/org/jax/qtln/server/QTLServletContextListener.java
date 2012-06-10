@@ -45,6 +45,7 @@ import org.apache.solr.core.CoreContainer;
 
 import org.jax.qtln.mgisearch.QTLPhenotypeLoader;
 import org.xml.sax.SAXException;
+import org.jax.qtln.sanger.SangerSNPFile;
 
 /**
  *
@@ -63,7 +64,9 @@ public class QTLServletContextListener implements ServletContextListener {
 
     //  The next two variables should be passed in as parameters to the
     //  servlet config.
-    private String snpDirName = "/Users/dow/Documents/workspace/QTLNarrowing/data/CGD/imputed";
+    private String snpDirName = "/Users/dow/workspace/QTLNarrowing/data/CGD/imputed";
+    
+    private String sangerSnpFile = "/Users/dow/workspace/cgd/RV/test_data/20110602-final-snps.vcf.gz";
     //  TODO: come up with a clever way of dealing with file name with changing
     //  version and build
     private String imputedSnpsBaseName =
@@ -74,17 +77,17 @@ public class QTLServletContextListener implements ServletContextListener {
     //  These are only default values for testing on my mac, actual values
     //  should be pulled from the qnt.propertie file
     private String LUNG_RMA =
-            "/Users/dow/Documents/workspace/QTLNarrowing/data/GEX/Lung/lung_rma.dat";
+            "/Users/dow/workspace/QTLNarrowing/data/GEX/Lung/lung_rma.dat";
     private String LUNG_DESIGN =
-            "/Users/dow/Documents/workspace/QTLNarrowing/data/GEX/Lung/lung_design.txt";
+            "/Users/dow/workspace/QTLNarrowing/data/GEX/Lung/lung_design.txt";
     private String LIVER_RMA =
-            "/Users/dow/Documents/workspace/QTLNarrowing/data/GEX/Liver/liver_rma.dat";
+            "/Users/dow/workspace/QTLNarrowing/data/GEX/Liver/liver_rma.dat";
     private String LIVER_DESIGN =
-            "/Users/dow/Documents/workspace/QTLNarrowing/data/GEX/Liver/liver_design.txt";
+            "/Users/dow/workspace/QTLNarrowing/data/GEX/Liver/liver_design.txt";
     private String LIVER_LF_DESIGN =
-            "/Users/dow/Documents/workspace/QTLNarrowing/data/GEX/Liver/liver_lf_design.txt";
+            "/Users/dow/workspace/QTLNarrowing/data/GEX/Liver/liver_lf_design.txt";
     private String LIVER_HF_DESIGN =
-            "/Users/dow/Documents/workspace/QTLNarrowing/data/GEX/Liver/liver_hf_design.txt";
+            "/Users/dow/workspace/QTLNarrowing/data/GEX/Liver/liver_hf_design.txt";
     private String MGI_FTP_ADDR = "ftp.informatics.jax.org";
     private String MGI_REPORTS_DIR = "pub/reports";
     private String MGI_AFFY_430A_2_0_FILE = "Affy_430A_2.0_mgi.rpt";
@@ -92,7 +95,7 @@ public class QTLServletContextListener implements ServletContextListener {
     private String MGI_AFFY_U74_FILE = "Affy_U74_mgi.rpt";
     private String MGI_AFFY_V1_0_FILE = "Affy_1.0_ST_mgi.rpt";
     private String SOLR_HOME =
-            "/Users/dow/Documents/workspace/QTLN/apache-solr-1.4.1/example/solr";
+            "/Users/dow/workspace/QTLN/apache-solr-1.4.1/example/solr";
     private String MGI_MARKERS_FILE = "MGI_Coordinate.rpt";
     private String MGI_QTL2MP_FILE = "MGI_PhenoGenoMP.rpt";
     private String MGI_MP_FILE = "VOC_MammalianPhenotype.rpt";
@@ -204,6 +207,17 @@ public class QTLServletContextListener implements ServletContextListener {
         }
         
         
+        //  Set up the Sanger SNP File for searching Sanger SNPs
+        try {
+            SangerSNPFile ssnpf = initSangerSNP(sc);
+            sc.setAttribute("sangerSNPs", ssnpf);
+            sc.setAttribute("SANGER_INIT_STATUS","SUCCESS");
+        } catch (Exception e) {
+            sc.log("Failure setting up Sanger SNPs...");
+            sc.log(e.getMessage());
+            sc.setAttribute("SANGER_INIT_STATUS","FAIL");
+        }
+        
         //  Set up the SNP Database
 
         boolean success = true;
@@ -220,6 +234,8 @@ public class QTLServletContextListener implements ServletContextListener {
             sc.setAttribute("snpLookup", this.cgdSNPLookup);
         }
         sc.log("SNPDB INITIALIZED");
+        
+        
 
         try {
             initProbeSetLookup(sc);
@@ -247,6 +263,12 @@ public class QTLServletContextListener implements ServletContextListener {
     public void contextDestroyed(ServletContextEvent event) {
     }
 
+    
+    private SangerSNPFile initSangerSNP(ServletContext sc) {
+        SangerSNPFile sangerSNPs = new SangerSNPFile(this.sangerSnpFile);
+        sc.log("***** CONSTRUCTED SangerSNPFile. Has " + sangerSNPs.getStrains().size() + " Strains associated with it!");
+        return sangerSNPs;
+    }
 
     private HashMap<String, SNPFile> initSnpDB(ServletContext sc)
             throws ServletException
@@ -457,6 +479,12 @@ public class QTLServletContextListener implements ServletContextListener {
             this.imputedSnpsBaseName =
                     p.getProperty("snp_base_file_name");
         }
+        
+        if (p.containsKey("sanger_snp_file_name")){
+            this.sangerSnpFile =
+                    p.getProperty("sanger_snp_file_name");
+        }
+        
         if (p.containsKey("data_directory")) {
             String data_dir = p.getProperty("data_directory");
             if (p.containsKey("snp_data_dir")) {

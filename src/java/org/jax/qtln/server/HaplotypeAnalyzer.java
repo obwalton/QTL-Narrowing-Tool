@@ -21,6 +21,7 @@
 
 package org.jax.qtln.server;
 
+import java.io.IOException;
 import java.util.HashMap;
 import org.jax.qtln.regions.SNPDoesNotMeetCriteriaException;
 import org.jax.qtln.regions.OverlappingRegion;
@@ -30,6 +31,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import org.jax.qtln.db.CGDSnpDB;
+import org.jax.qtln.sanger.SangerSNPFile;
+import org.jax.qtln.sanger.TabixReader;
 
 /**
  * Used for doing the Haplotype Analysis step of the QTL Narrowing workflow
@@ -59,8 +62,13 @@ import org.jax.qtln.db.CGDSnpDB;
 public class HaplotypeAnalyzer implements Runnable {
     private List strains;
     private Map<String, SNPFile> cgdSNPLookup;
+    private SangerSNPFile sangerSNPFile;
     private CGDSnpDB snpLookup;
 
+    public enum SNPType {sanger, cgd_imputed};
+    
+    // Default snptype is Sanger
+    private SNPType snpType = SNPType.sanger;
     private String chromosome;
     private Region region;
 
@@ -84,6 +92,12 @@ public class HaplotypeAnalyzer implements Runnable {
      */
     public HaplotypeAnalyzer (Map<String, SNPFile> lookup) {
         this.cgdSNPLookup = lookup;
+        this.snpType = SNPType.cgd_imputed;
+    }
+    
+    public HaplotypeAnalyzer (SangerSNPFile sangerSNPs) {
+        this.sangerSNPFile = sangerSNPs;
+        this.snpType = SNPType.sanger;
     }
 
     /**
@@ -139,6 +153,18 @@ public class HaplotypeAnalyzer implements Runnable {
      *
      */
     private Region getSnpsInRegion(String chromosome, OverlappingRegion region) {
+        Region returnRegion = null;
+        if (this.snpType == SNPType.cgd_imputed) {
+            returnRegion = getSnpsInRegionCgdImputed(chromosome, region);
+        } else if (this.snpType == SNPType.sanger) {
+            returnRegion = getSnpsInRegionSanger(chromosome, region);
+        }
+        return returnRegion;
+    } 
+
+    private Region getSnpsInRegionCgdImputed(String chromosome, 
+            OverlappingRegion region) {
+    
         //  get two lists from region:
         //      High responding strains
         //      Low responding strains
@@ -148,10 +174,10 @@ public class HaplotypeAnalyzer implements Runnable {
         
         //  Get look-up for this chromosome
         SNPFile snpLookup = this.cgdSNPLookup.get(chromosome);
-
         //  Find the array of candidate SNPs in the region.
-        int[] snpSubSet = snpLookup.findSnpPositionsInRange(region.getStart(),
-                region.getEnd());
+        int[]snpSubSet = snpLookup.findSnpPositionsInRange(region.getStart(), 
+                    region.getEnd());
+
         region.setTotalNumSNPsInRegion(snpSubSet.length);
 
         // Get all the SNPs that meet the criteria and add them to the
@@ -184,9 +210,10 @@ public class HaplotypeAnalyzer implements Runnable {
                 continue;
             }
             // If SNP kept add to our region
-            if (snp != null)
+            if (snp != null) {
                 region.addSnp(snp);
                 ++snp_count;
+            }
 
         }
         System.out.println("Kept " + snp_count + " for region");
@@ -199,8 +226,76 @@ public class HaplotypeAnalyzer implements Runnable {
             System.out.println(key + " " + diagnostics.get(key));
         }
         return region;
-    } 
+    }
 
 
+    private Region getSnpsInRegionSanger(String chromosome, 
+            OverlappingRegion region) {
+    
+        //  get two lists from region:
+        //      High responding strains
+        //      Low responding strains
+        List<String> highRespondingStrains = region.getHighRespondingStrains();
+        List<String> lowRespondingStrains = region.getLowRespondingStrains();
+        HashMap<String, Integer>  diagnostics = new HashMap<String, Integer>();
+        
+        //  Find the array of candidate SNPs in the region.
+        TabixReader.Iterator iterator = sangerSNPFile.search(chromosome, 
+                region.getStart(), region.getEnd());
+        System.out.println("Back from searching " + chromosome + ":" + region.getStart() + "-" + region.getEnd());
+        int total_snp_count = 0;
+        int snp_count = 0;
+        
+        String snp_line = "";
 
+        try {
+            if (iterator != null) 
+                snp_line = iterator.next();
+            else
+                snp_line = null;
+        } catch (IOException ioe) {
+            //  Problem reading the sanger file... Need a better way of 
+            //  handling exception
+            ioe.printStackTrace();
+        }
+        while (snp_line != null) {
+            total_snp_count += 1;
+            SNP snp = null;
+            try {
+                snp = sangerSNPFile.analyzeSNP(snp_line, highRespondingStrains,
+                        lowRespondingStrains);
+            } catch (SNPDoesNotMeetCriteriaException e) {
+                //  TODO:  Consider logging snps that fail criteria and why
+                if (diagnostics.containsKey(e.getMessage())) {
+                    int value = diagnostics.get(e.getMessage()).intValue();
+                    value++;
+                    diagnostics.put(e.getMessage(), value);
+                } else {
+                    diagnostics.put(e.getMessage(), 1);
+                }
+            }
+            // If SNP kept add to our region
+            if (snp != null) {
+                region.addSnp(snp);
+                ++snp_count;
+
+            }
+            try {
+                snp_line = iterator.next();
+            } catch (IOException ioe) {
+                //  Problem reading the sanger file... Need a better way of 
+                //  handling exception
+                ioe.printStackTrace();
+            }
+        }
+        region.setTotalNumSNPsInRegion(total_snp_count);
+        
+        System.out.println("Kept " + snp_count + " for region");
+
+        // Print out some diagnostics about rejected snps
+        for (String key:diagnostics.keySet()) {
+            System.out.println("Rejected " + key + " " + diagnostics.get(key));
+        }
+        return region;
+    }
 }
