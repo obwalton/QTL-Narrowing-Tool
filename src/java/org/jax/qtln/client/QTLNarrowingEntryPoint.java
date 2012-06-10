@@ -22,6 +22,7 @@ import com.extjs.gxt.ui.client.Style.Scroll;
 import com.extjs.gxt.ui.client.data.BaseModel;
 import com.extjs.gxt.ui.client.data.ModelData;
 import com.extjs.gxt.ui.client.event.ButtonEvent;
+import com.extjs.gxt.ui.client.event.EditorEvent;
 import com.extjs.gxt.ui.client.event.Events;
 import com.extjs.gxt.ui.client.event.GridEvent;
 import com.extjs.gxt.ui.client.event.IconButtonEvent;
@@ -141,7 +142,10 @@ public class QTLNarrowingEntryPoint implements EntryPoint {
     // of the class.
     private final VerticalPanel masterPanel = new VerticalPanel();
     private final ContentPanel prepPanel = new ContentPanel();
+    private Map<String, String[]> strainMap = new HashMap<String,String[]>();
+    private final HorizontalPanel strainPanel = new HorizontalPanel(); 
     private String[] strains = new String[0];
+    private String snpSet = "";
     private Map<Integer, String> snpAnnotLookup = new HashMap<Integer, String>();
     private Label mgiLabel = new Label("QTL Template by Phenotype from MGI:");
     private TextBox mgiTextBox = new TextBox();
@@ -271,6 +275,9 @@ public class QTLNarrowingEntryPoint implements EntryPoint {
         Hidden qtlFileType = new Hidden("FileType", "QTLFile");
         uploadPanel.add(qtlFileType);
         panel.add(uploadPanel);
+        
+        strainPanel.add(new Label("Select SNP set for analysis:"));
+        panel.add(strainPanel);
 
         internalPrep.add(form);
 
@@ -278,7 +285,7 @@ public class QTLNarrowingEntryPoint implements EntryPoint {
         //  Before we do anything else, get our list of strains.  These strains
         //  Are the strains associated with the CGD Imputed SNP dataset.  They
         //  are the only strains we support at this time.
-        qtlService.getStrains(new AsyncCallback<String[]>() {
+        qtlService.getStrains(new AsyncCallback<Map<String,String[]>>() {
 
             public void onFailure(Throwable caught) {
                 System.out.println("IN FAIL CASE GET STRAINS");
@@ -305,9 +312,31 @@ public class QTLNarrowingEntryPoint implements EntryPoint {
             //  widget, also all other widgets appeared above the qtl grid
             //  widget once I put it in here.  This also results in all the
             //  fields appearing at the same time.
-            public void onSuccess(String[] results) {
+            public void onSuccess(Map<String,String[]> results) {
                 System.out.println("IN SUCCESS CASE GET STRAINS");
-                strains = results;
+                strainMap = results;
+                boolean first_button = true;
+                GWT.log(results.keySet().toString());
+                for (String key:(Set<String>)results.keySet()) {
+                    final RadioButton strainButton = new RadioButton("strainGroup", key);
+                    strainButton.addClickHandler(new ClickHandler() {
+                        public void onClick(ClickEvent event) {
+                            if (strainButton.getValue()) {
+                                snpSet = strainButton.getText();
+                                strains = strainMap.get(snpSet);
+                                updateStrainCombos();
+                                // TODO: Probably should call a validateQTLList method here!!
+                            }
+                        }
+                    });
+                    if (first_button) {
+                        strainButton.setValue(true);
+                        snpSet = key;
+                        strains = strainMap.get(key);
+                        first_button = false;
+                    }
+                    strainPanel.add(strainButton);
+                }
 
                 final EditorGrid qtlTable = initEditableQTLTable();
                 qtlTable.setClicksToEdit(EditorGrid.ClicksToEdit.TWO);
@@ -327,20 +356,20 @@ public class QTLNarrowingEntryPoint implements EntryPoint {
                                 UIQTL qtl = new UIQTL("", "", "Mouse", "unknown",
                                         "unknown", "", 0, 0);
                                 qtlTable.stopEditing();
-                                store.insert(qtl,0);
+                                store.insert(qtl, 0);
                                 qtlTable.startEditing(0, 0);
                             }
                         });
                 insert.setToolTip("Insert");
                 qtlPanel.getHeader().addTool(insert);
-                
+
                 ToolButton delete = new ToolButton("x-tool-minus",
                         new SelectionListener<IconButtonEvent>() {
 
                             @Override
                             public void componentSelected(IconButtonEvent ce) {
                                 ListStore<UIQTL> store = qtlTable.getStore();
-                                store.remove((UIQTL)qtlTable.getSelectionModel().getSelectedItem());
+                                store.remove((UIQTL) qtlTable.getSelectionModel().getSelectedItem());
                             }
                         });
                 delete.setToolTip("Delete");
@@ -352,7 +381,7 @@ public class QTLNarrowingEntryPoint implements EntryPoint {
                             @Override
                             public void componentSelected(IconButtonEvent ce) {
                                 if (qtlTable.getStore().getCount() > 0) {
-                                    exportListStore(qtlTable.getStore(),"TAB", false);
+                                    exportListStore(qtlTable.getStore(), "TAB", false);
                                 }
                             }
                         });
@@ -890,7 +919,6 @@ public class QTLNarrowingEntryPoint implements EntryPoint {
                 resultMap =
                         new HashMap<String, Map<String, Map<String, Object>>>();
                 Set<String> keys = results.keySet();
-                GWT.log("Populate summaryList");
                 // I've had problems with null pointer exceptions
                 // inside the grid infrastructure.
                 // This failure flag is to allow me to break out and
@@ -978,7 +1006,6 @@ public class QTLNarrowingEntryPoint implements EntryPoint {
                     ArrayList<List> qtls = new ArrayList<List>();
                     EditorGrid qtlTable = (EditorGrid) qtlPanel.getWidget(0);
                     ListStore<UIQTL> qtlList = (ListStore<UIQTL>) qtlTable.getStore();
-
                     for (int i = 0; i < qtlList.getCount(); i++) {
                         ArrayList row = new ArrayList();
                         // Replace this with a method that takes a UIQTL and sends
@@ -1048,7 +1075,7 @@ public class QTLNarrowingEntryPoint implements EntryPoint {
                     }
                     System.out.println("Calling narrowQTLs");
                     qtlService.narrowQTLs((List<List>) qtls, doGEX, defaultGEXExp,
-                            narrowingCallback);
+                            snpSet, narrowingCallback);
 
                 } catch (InvalidStrainException ise) {
 
@@ -1058,6 +1085,13 @@ public class QTLNarrowingEntryPoint implements EntryPoint {
                     dialogBox.show();
                     narrowButton.setEnabled(false);
 
+                } catch (Exception e) {
+                    String textForMessage = e.getMessage();
+                    dialogBox = MessageBox.alert("QTL Narrowing", textForMessage,
+                            alertListener);
+                    dialogBox.show();
+                    narrowButton.setEnabled(false);
+                   
                 }
             }
         });
@@ -1072,6 +1106,34 @@ public class QTLNarrowingEntryPoint implements EntryPoint {
 
 
     }
+    
+            //  Render for displaying invalid strains as red
+        GridCellRenderer<UIQTL> strainRenderer = new GridCellRenderer<UIQTL>() {
+
+            public String render(UIQTL model, String property, ColumnData config,
+                    int rowIndex, int colIndex, ListStore<UIQTL> qtlList,
+                    Grid<UIQTL> grid) {
+                String val = (String) model.get(property);
+                String html = "";
+                String[] l_strains = new String[0];
+                //  Skip the first widget as it's the label
+                for (int i = 1; i < strainPanel.getWidgetCount(); i++) {
+                    RadioButton b = (RadioButton)strainPanel.getWidget(i);
+                    GWT.log("Checking widget number " + i + " name " + b.getText() + " value " + b.getValue());
+                    if (b.getValue()) {
+                        l_strains = strainMap.get(b.getText());
+                    }
+                }
+                if (Arrays.binarySearch(l_strains, val) > -1) {
+                    html = val;
+                } else {
+                    html = "<span style='color:red'>" + val + "</span>";
+                }
+
+                return html;
+            }
+        };
+
 
     private EditorGrid initEditableQTLTable() {
         List<ColumnConfig> configs = new ArrayList<ColumnConfig>();
@@ -1106,24 +1168,6 @@ public class QTLNarrowingEntryPoint implements EntryPoint {
         column.setEditor(new CellEditor(text));
         configs.add(column);
 
-        //  Render for displaying invalid strains as red
-        GridCellRenderer<UIQTL> strainRenderer = new GridCellRenderer<UIQTL>() {
-
-            public String render(UIQTL model, String property, ColumnData config,
-                    int rowIndex, int colIndex, ListStore<UIQTL> qtlList,
-                    Grid<UIQTL> grid) {
-                String val = (String) model.get(property);
-                String html = "";
-                if (Arrays.binarySearch(strains, val) > -1) {
-                    html = val;
-                } else {
-                    html = "<span style='color:red'>" + val + "</span>";
-                }
-
-                return html;
-            }
-        };
-
         //  Forth Column is High Responding Strain, this will be a selectable
         //  combo box
         final SimpleComboBox<String> combo1 = new SimpleComboBox<String>();
@@ -1131,13 +1175,20 @@ public class QTLNarrowingEntryPoint implements EntryPoint {
         for (String strain : this.strains) {
             combo1.add(strain);
         }
+
         CellEditor editor = new CellEditor(combo1) {
+
+            String oldValue = "";
+            String newValue = "";
+            boolean replace = false;
 
             @Override
             public Object preProcessValue(Object value) {
                 if (value == null) {
                     return value;
                 }
+                GWT.log("IN PREPROCESS = " + value.toString());
+                oldValue = value.toString();
                 return combo1.findModel(value.toString());
             }
 
@@ -1145,6 +1196,26 @@ public class QTLNarrowingEntryPoint implements EntryPoint {
             public Object postProcessValue(Object value) {
                 if (value == null) {
                     return value;
+                }
+                if (!oldValue.equals(value.toString())) {
+                    newValue = ((ModelData) value).get("value");
+                    MessageBox mb =
+                            MessageBox.confirm("Change All Values?", "Do you wish to replace all instances of '"
+                            + oldValue + "' in High Responding column with '"
+                            + newValue + "'?", new Listener<MessageBoxEvent>() {
+
+                        public void handleEvent(MessageBoxEvent mbe) {
+                            if (mbe.getButtonClicked().getItemId().equals(Dialog.YES)) {
+                                GWT.log("Yes Button Pressed!");
+                                replace = true;
+                                QTLNarrowingEntryPoint.this.alterHRStrainValues(
+                                        row, oldValue, newValue);
+                            }
+                        }
+                    });
+                    mb.setModal(true);
+                    mb.show();
+
                 }
                 return ((ModelData) value).get("value");
             }
@@ -1161,13 +1232,20 @@ public class QTLNarrowingEntryPoint implements EntryPoint {
         for (String strain : this.strains) {
             combo2.add(strain);
         }
+
         editor = new CellEditor(combo2) {
+
+            String oldValue = "";
+            String newValue = "";
+            boolean replace = false;
 
             @Override
             public Object preProcessValue(Object value) {
                 if (value == null) {
                     return value;
                 }
+                GWT.log("IN PREPROCESS = " + value.toString());
+                oldValue = value.toString();
                 return combo2.findModel(value.toString());
             }
 
@@ -1175,6 +1253,27 @@ public class QTLNarrowingEntryPoint implements EntryPoint {
             public Object postProcessValue(Object value) {
                 if (value == null) {
                     return value;
+                }
+
+                if (!oldValue.equals(value.toString())) {
+                    newValue = ((ModelData) value).get("value");
+                    MessageBox mb =
+                            MessageBox.confirm("Change All Values?", "Do you wish to replace all instances of '"
+                            + oldValue + "' in Low Responding column with '"
+                            + newValue + "'?", new Listener<MessageBoxEvent>() {
+
+                        public void handleEvent(MessageBoxEvent mbe) {
+                            if (mbe.getButtonClicked().getItemId().equals(Dialog.YES)) {
+                                GWT.log("Yes Button Pressed!");
+                                replace = true;
+                                QTLNarrowingEntryPoint.this.alterLRStrainValues(
+                                        row, oldValue, newValue);
+                            }
+                        }
+                    });
+                    mb.setModal(true);
+                    mb.show();
+
                 }
                 return ((ModelData) value).get("value");
             }
@@ -1325,6 +1424,196 @@ public class QTLNarrowingEntryPoint implements EntryPoint {
         return grid;
     }
 
+    private void alterLRStrainValues(int row, String oldValue, String newValue) {
+
+        EditorGrid qtlTable = (EditorGrid) qtlPanel.getWidget(0);
+        ListStore<UIQTL> qtlList =
+                (ListStore<UIQTL>) qtlTable.getStore();
+        for (int i=0; i<qtlList.getCount(); i++) {
+            UIQTL qtl = qtlList.getAt(i);
+            String current = qtl.getLrstrain();
+            if (current.equals(oldValue)) {
+                qtl.setLrstrain(newValue);
+            }
+            qtlList.update(qtl);
+        }
+    }
+
+    private void alterHRStrainValues(int row, String oldValue, String newValue) {
+
+        EditorGrid qtlTable = (EditorGrid) qtlPanel.getWidget(0);
+        ListStore<UIQTL> qtlList =
+                (ListStore<UIQTL>) qtlTable.getStore();
+        for (int i=0; i<qtlList.getCount(); i++) {
+            UIQTL qtl = qtlList.getAt(i);
+            String current = qtl.getHrstrain();
+            if (current.equals(oldValue)) {
+                qtl.setHrstrain(newValue);
+            }
+            qtlList.update(qtl);
+        }
+    }
+
+    private void updateStrainCombos() {
+
+        EditorGrid qtlTable = (EditorGrid) qtlPanel.getWidget(0);
+        ColumnModel cm = qtlTable.getColumnModel();
+        ColumnConfig hrcolumn = cm.getColumnById("hrstrain");
+        
+        //  All this to update the list of strains in combo box
+        final SimpleComboBox<String> combo1 = new SimpleComboBox<String>();
+        combo1.setTriggerAction(TriggerAction.ALL);
+        String[] l_strains = new String[0];
+        //  Skip the first widget as it's the label
+        for (int i = 1; i < strainPanel.getWidgetCount(); i++) {
+            RadioButton b = (RadioButton) strainPanel.getWidget(i);
+            GWT.log("Checking widget number " + i + " name " + b.getText() + " value " + b.getValue());
+            if (b.getValue()) {
+                l_strains = strainMap.get(b.getText());
+            }
+        }
+        for (String strain : l_strains) {
+            combo1.add(strain);
+        }
+
+        CellEditor editor1 = new CellEditor(combo1) {
+
+            String oldValue = "";
+            String newValue = "";
+            boolean replace = false;
+
+            @Override
+            public Object preProcessValue(Object value) {
+                if (value == null) {
+                    return value;
+                }
+                GWT.log("IN PREPROCESS = " + value.toString());
+                oldValue = value.toString();
+                return combo1.findModel(value.toString());
+            }
+
+            @Override
+            public Object postProcessValue(Object value) {
+                if (value == null) {
+                    return value;
+                }
+                if (!oldValue.equals(value.toString())) {
+                    newValue = ((ModelData) value).get("value");
+                    MessageBox mb =
+                            MessageBox.confirm("Change All Values?", "Do you wish to replace all instances of '"
+                            + oldValue + "' in High Responding column with '"
+                            + newValue + "'?", new Listener<MessageBoxEvent>() {
+
+                        public void handleEvent(MessageBoxEvent mbe) {
+                            if (mbe.getButtonClicked().getItemId().equals(Dialog.YES)) {
+                                GWT.log("Yes Button Pressed!");
+                                replace = true;
+                                QTLNarrowingEntryPoint.this.alterHRStrainValues(
+                                        row, oldValue, newValue);
+                            }
+                        }
+                    });
+                    mb.setModal(true);
+                    mb.show();
+
+                }
+                return ((ModelData) value).get("value");
+            }
+        };
+
+        editor1.addListener(Events.BeforeComplete, new Listener<EditorEvent>() {
+            public void handleEvent(EditorEvent be) {
+                MessageBox mb =
+                        MessageBox.alert("Testing", be.getValue().toString(),
+                        new Listener<MessageBoxEvent>() {
+
+                            public void handleEvent(MessageBoxEvent mbe) {
+                                GWT.log("Testing " + mbe.getValue());
+                            }
+                        });
+                mb.show();
+                be.stopEvent();
+            }
+        });
+        hrcolumn.setEditor(editor1);
+        hrcolumn.setRenderer(strainRenderer);
+
+        
+        ColumnConfig lrcolumn = cm.getColumnById("lrstrain");
+        //  All this to update the list of strains in combo box
+        final SimpleComboBox<String> combo2 = new SimpleComboBox<String>();
+        combo2.setTriggerAction(TriggerAction.ALL);
+        for (String strain : l_strains) {
+            combo2.add(strain);
+        }
+
+        CellEditor editor2 = new CellEditor(combo2) {
+
+            String oldValue = "";
+            String newValue = "";
+            boolean replace = false;
+
+            @Override
+            public Object preProcessValue(Object value) {
+                if (value == null) {
+                    return value;
+                }
+                GWT.log("IN PREPROCESS = " + value.toString());
+                oldValue = value.toString();
+                return combo1.findModel(value.toString());
+            }
+
+            @Override
+            public Object postProcessValue(Object value) {
+                if (value == null) {
+                    return value;
+                }
+                if (!oldValue.equals(value.toString())) {
+                    newValue = ((ModelData) value).get("value");
+                    MessageBox mb =
+                            MessageBox.confirm("Change All Values?", "Do you wish to replace all instances of '"
+                            + oldValue + "' in Low Responding column with '"
+                            + newValue + "'?", new Listener<MessageBoxEvent>() {
+
+                        public void handleEvent(MessageBoxEvent mbe) {
+                            if (mbe.getButtonClicked().getItemId().equals(Dialog.YES)) {
+                                GWT.log("Yes Button Pressed!");
+                                replace = true;
+                                QTLNarrowingEntryPoint.this.alterHRStrainValues(
+                                        row, oldValue, newValue);
+                            }
+                        }
+                    });
+                    mb.setModal(true);
+                    mb.show();
+
+                }
+                return ((ModelData) value).get("value");
+            }
+        };
+
+        editor2.addListener(Events.BeforeComplete, new Listener<EditorEvent>() {
+            public void handleEvent(EditorEvent be) {
+                MessageBox mb =
+                        MessageBox.alert("Testing", be.getValue().toString(),
+                        new Listener<MessageBoxEvent>() {
+
+                            public void handleEvent(MessageBoxEvent mbe) {
+                                GWT.log("Testing " + mbe.getValue());
+                            }
+                        });
+                mb.show();
+                be.stopEvent();
+            }
+        });
+        lrcolumn.setEditor(editor1);
+        
+        //  Needed to refresh text of lr and hr columns to trigger render
+        //  which checks if strain names are valid.
+        qtlTable.getView().refresh(true);
+
+    }
+
     private Grid initResultTable() {
         final List<ColumnConfig> configs = new ArrayList<ColumnConfig>();
         //  First Column is the Chromosome
@@ -1415,7 +1704,7 @@ public class QTLNarrowingEntryPoint implements EntryPoint {
         //  Number Selected SNPs
         column = new ColumnConfig();
         column.setId("numsnps");
-        column.setHeader("# Selected SNPS");
+        column.setHeader("# Polymorphic SNPS");
         column.setWidth(100);
         column.setRenderer(formatInt);
         configs.add(column);
@@ -1436,7 +1725,7 @@ public class QTLNarrowingEntryPoint implements EntryPoint {
                     ListStore<QTLResult> store, Grid<QTLResult> grid) {
                 int val = (Integer) model.getNumgenes();
                 String fmtVal = countFmt.format(val);
-                String html = "<span qtitle='Genes' qtip='Click cell for list of "
+                String html = "<span qtitle='Genes with Polymorphic SNPs' qtip='Click cell for list of "
                         + fmtVal + " Genes and Expression info'>" + fmtVal
                         + "</span>";
                 return html;
@@ -2316,19 +2605,19 @@ public class QTLNarrowingEntryPoint implements EntryPoint {
                 first = false;
             }
             List<String> columns = new ArrayList<String>();
-            for (String name: headers) {
+            for (String name : headers) {
                 Object col = model.get(name);
                 if (col instanceof Integer) {
-                    String foo = ((Integer)col).toString();
+                    String foo = ((Integer) col).toString();
                     columns.add(foo);
                 } else if (col instanceof Double) {
-                    String foo = ((Double)col).toString();
+                    String foo = ((Double) col).toString();
                     columns.add(foo);
                 } else if (col instanceof Character) {
-                    String foo = ((Character)col).toString();
+                    String foo = ((Character) col).toString();
                     columns.add(foo);
                 } else {
-                    columns.add((String)model.get(name));
+                    columns.add((String) model.get(name));
                 }
             }
             rows.add(columns.toArray(new String[0]));
@@ -2337,59 +2626,58 @@ public class QTLNarrowingEntryPoint implements EntryPoint {
 
         qtlService.exportTable(rows, delim, header, new AsyncCallback<Boolean>() {
 
-                public void onFailure(Throwable caught) {
-                    System.out.println("IN FAIL CASE Export Table");
-                    // Show the RPC error message to the user
-                    String textForMessage = caught.getMessage();
-                    dialogBox = MessageBox.alert("QTL Narrowing",
-                            textForMessage,
-                            new Listener<MessageBoxEvent>() {
+            public void onFailure(Throwable caught) {
+                System.out.println("IN FAIL CASE Export Table");
+                // Show the RPC error message to the user
+                String textForMessage = caught.getMessage();
+                dialogBox = MessageBox.alert("QTL Narrowing",
+                        textForMessage,
+                        new Listener<MessageBoxEvent>() {
 
-                                public void handleEvent(MessageBoxEvent mbe) {
-                                    dialogBox.close();
-                                }
-                            });
+                            public void handleEvent(MessageBoxEvent mbe) {
+                                dialogBox.close();
+                            }
+                        });
 
 
-                    dialogBox.show();
+                dialogBox.show();
+            }
+
+            public void onSuccess(Boolean result) {
+                System.out.println("IN SUCCESS CASE CLEAR ANALYSIS");
+                System.out.println("Was there anything to save? "
+                        + result.toString());
+
+                final Dialog simple = new Dialog();
+                simple.setHeading("Download Link");
+                simple.setButtons(Dialog.CLOSE);
+                simple.setBodyStyleName("pad-text");
+                simple.add(new HTML(this.getCsvFileLink()));
+                //simple.addText();
+                simple.setScrollMode(Scroll.AUTO);
+                simple.setHideOnButtonClick(true);
+                simple.show();
+
+            }
+
+            /**
+             * Get the link that should be used for downloading the CSV file
+             * @return  the CSV file
+             */
+            private String getCsvFileLink() {
+                String url;
+                if (delimiter.equals("COMMA")) {
+                    url = "restful/query-results/latest-query.csv";
+                } else {
+                    url = "restful/query-results/latest-query.txt";
                 }
-
-                public void onSuccess(Boolean result) {
-                    System.out.println("IN SUCCESS CASE CLEAR ANALYSIS");
-                    System.out.println("Was there anything to save? " +
-                            result.toString());
-
-                        final Dialog simple = new Dialog();
-                        simple.setHeading("Download Link");
-                        simple.setButtons(Dialog.CLOSE);
-                        simple.setBodyStyleName("pad-text");
-                        simple.add(new HTML(this.getCsvFileLink()));
-                        //simple.addText();
-                        simple.setScrollMode(Scroll.AUTO);
-                        simple.setHideOnButtonClick(true);
-                        simple.show();
-
-                }
-
-                /**
-                 * Get the link that should be used for downloading the CSV file
-                 * @return  the CSV file
-                 */
-                private String getCsvFileLink() {
-                    String url;
-                    if (delimiter.equals("COMMA"))
-                        url = "restful/query-results/latest-query.csv";
-                    else
-                        url = "restful/query-results/latest-query.txt";
-                    return "<a href=\"" + url + "\">"
+                return "<a href=\"" + url + "\">"
                         + "Download Results Table</a>";
-                }
-            });
+            }
+        });
 
 
     }
-
-
 }
 
 class UIQTL extends BaseModel {
@@ -2421,8 +2709,16 @@ class UIQTL extends BaseModel {
         return (String) get("species");
     }
 
+    public void setHrstrain(String strain) {
+        set("hrstrain",strain);
+    }
+
     public String getHrstrain() {
         return (String) get("hrstrain");
+    }
+
+    public void setLrstrain(String strain) {
+        set("lrstrain",strain);
     }
 
     public String getLrstrain() {

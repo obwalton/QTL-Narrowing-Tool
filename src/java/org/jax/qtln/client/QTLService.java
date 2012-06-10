@@ -38,10 +38,10 @@ import org.jax.qtln.regions.ReturnRegion;
 public interface QTLService extends RemoteService{
     public List<String[]> readQTLFile() throws Throwable;
     public Map<String,List<Map<String,Object>>> narrowQTLs(List<List> qtls,
-            boolean doGEX, String gexExp)
+            boolean doGEX, String gexExp, String snpSet)
             throws Throwable;
     public String getNarrowingStatus() throws Throwable;
-    public String[] getStrains() throws Throwable;
+    public Map<String, String[]> getStrains() throws Throwable;
     public Map<Integer,String> getSnpAnnotLookup() throws Throwable;
     public ReturnRegion getRegion(String chromosome, String rangeKey)
             throws Throwable;

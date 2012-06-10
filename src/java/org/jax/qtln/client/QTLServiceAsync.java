@@ -36,10 +36,10 @@ import org.jax.qtln.regions.ReturnRegion;
 public interface QTLServiceAsync {
     public void readQTLFile(AsyncCallback<List<String[]>> callback);
 
-    public void narrowQTLs(List<List> qtls, boolean doGEX, String gexExp,
+    public void narrowQTLs(List<List> qtls, boolean doGEX, String gexExp, String snpSet,
             AsyncCallback<Map<String,List<Map<String,Object>>>> callback);
     public void getNarrowingStatus(AsyncCallback<String> callback);
-    public void getStrains(AsyncCallback<String[]> callback);
+    public void getStrains(AsyncCallback<Map<String,String[]>> callback);
     public void getSnpAnnotLookup(AsyncCallback<Map<Integer,String>> callback);
     public void getRegion(String chromosome, String rangeKey,
             AsyncCallback<ReturnRegion> callback);
