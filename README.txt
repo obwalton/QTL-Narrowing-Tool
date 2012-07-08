@@ -18,11 +18,13 @@ Copyright
 Dependencies
 ------------
 Software Libraries
-gwt 2.0.2
-gxt 2.1.1
+commons-fileupload-1.2.1
 commons-math-2.1
-mysql-connector-java-5.1.12
 commons-net-ftp-2.0
+gwt 2.4.0
+gxt 2.2.5
+jersey-1.0.3
+mysql-connector-java-5.1.12
 solr 1.4.1 specific libraries:
 	dist/apache-solr-solrj-*.jar
 	dist/solrj-lib
@@ -32,18 +34,28 @@ solr 1.4.1 specific libraries:
 		jcl-over-slf4j-1.5.5.jar
 		slf4j-api-1.5.5.jar
 	lib/slf4j-jdk14-1.5.5.jar
+            lucene-core-2.9.3.jar
+            lucene-analyzer-2.9.3.jar
+            lucene-highlighter-2.9.3.jar
+            lucene-spellchecker-2.9.3.jar
    Solr data being written to the solr/data directory in this project
    use the schema.xml file that is in solr folder with solr installation
- 
+SAM-Picard-1.5.6 
+
 Data resources
 CGD SNP DB
+Sanger SNPs
 CGD Imputed SNPs
 Mouse Genome Database
 Lung Strain Survey
 Liver Strain Survey
 Need to copy gxt images folder to qtl-narrowing-tool/web/resources/images/
 
-Tomcat Resources
+Tomcat Resources:
+
+Tomcat must be started with:  -Xms500m -Xmx4G
+
+Temporary authentication
 For the time being we are keeping the app private using basic tomcat auth.
 Place a tomcat-users.xml file in the $TOMCAT/conf directory with the role
 "qtlusers" and then make sure the web.xml file in web/WEB-INF contains the
