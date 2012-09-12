@@ -50,7 +50,7 @@ import org.jax.qtln.regions.OverlappingRegion;
 import org.jax.qtln.regions.QTL;
 import org.jax.qtln.regions.ReturnRegion;
 import org.jax.qtln.regions.SNP;
-import org.jax.qtln.sanger.SangerSNPFile;
+import org.jax.qtln.snpsets.SangerSNPFile;
 
 /**
  * The server side implementation of the RPC service.

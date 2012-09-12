@@ -245,8 +245,9 @@ public class CGDSnpDB {
             throws SQLException
     {
         List<List> results = new ArrayList<List>();
-        String detail_cmd = "select distinct s.snpid, s.bp_position, st._loc_func_key, " +
-                "st.gene_id, g.gene_start, g.gene_end, mgi.mgi_geneid, mgi.marker_symbol, mgi.marker_name, " +
+        String detail_cmd = "select distinct s.snpid, sp.bp_position, " +
+                "st._loc_func_key, st.gene_id, g.gene_start, g.gene_end, " +
+                "mgi.mgi_geneid, mgi.marker_symbol, mgi.marker_name, " +
                 "sa.accession_id as rs_number, sa2.accession_id as provider_id, " +
                 "sas.source_name as provider " +
                 "from snp_main s LEFT JOIN (snp_accession sa) ON " +
@@ -254,12 +255,12 @@ public class CGDSnpDB {
                 "LEFT JOIN (snp_accession sa2, snp_source sas) ON " +
                 "(s.snpid = sa2.snpid and sa2.snpid_id_type = 3 " +
                 "and sa2.source_id = sas.source_id), " +
-                "snp_chromosome c, snp_by_source ss, " +
+                "snp_position sp, snp_chromosome c, snp_by_source ss, " +
                 "snp_transcript st, cgd_genes_ensembl_mgi mgi, cgd_genes g " +
                 "where chromosome_name =  '" +
                 chromosome + "' " +
-                "and c.chromosome_id = s.chromosome_id " +
-                "and s.bp_position in (";
+                "and c.chromosome_id = sp.chromosome_id " +
+                "and sp.bp_position in (";
         boolean first = true;
         for (Integer position: bpPosList) {
             if (first) {
@@ -272,12 +273,13 @@ public class CGDSnpDB {
         }
         // snpid_type_id will only bring back RS numbers
         detail_cmd += ")" +
+                "and sp.snpid = s.snpid " +
                 "and s.snpid = ss.snpid " +
-                "and ss.source_id = 16 " +
+                "and ss.source_id in (15, 16, 21) " +
                 "and s.snpid = st.snpid " +
                 "and st.gene_id = mgi.gene_id " +
                 "and st.gene_id = g.gene_id " +
-                "order by s.bp_position, s.snpid";
+                "order by sp.bp_position, s.snpid";
         //System.out.println(detail_cmd);
         ResultSet rs = null;
         Statement statement = null;

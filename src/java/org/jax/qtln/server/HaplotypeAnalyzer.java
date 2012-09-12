@@ -31,8 +31,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import org.jax.qtln.db.CGDSnpDB;
-import org.jax.qtln.sanger.SangerSNPFile;
-import org.jax.qtln.sanger.TabixReader;
+import org.jax.qtln.snpsets.SangerSNPFile;
+import org.jax.qtln.snpsets.TabixReader;
 
 /**
  * Used for doing the Haplotype Analysis step of the QTL Narrowing workflow

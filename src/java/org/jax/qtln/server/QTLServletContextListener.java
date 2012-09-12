@@ -45,7 +45,7 @@ import org.apache.solr.core.CoreContainer;
 
 import org.jax.qtln.mgisearch.QTLPhenotypeLoader;
 import org.xml.sax.SAXException;
-import org.jax.qtln.sanger.SangerSNPFile;
+import org.jax.qtln.snpsets.SangerSNPFile;
 
 /**
  *

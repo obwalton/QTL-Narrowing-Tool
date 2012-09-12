@@ -1,4 +1,4 @@
-package org.jax.qtln.sanger;
+package org.jax.qtln.snpsets;
 
 /* The MIT License
 

@@ -2,7 +2,7 @@
  * To change this template, choose Tools | Templates
  * and open the template in the editor.
  */
-package org.jax.qtln.sanger;
+package org.jax.qtln.snpsets;
 
 import java.io.BufferedReader;
 import java.io.File;
