@@ -178,9 +178,9 @@ public class OverlappingRegion implements Region, Serializable {
         }
         if (! this.genes.containsKey(cgd_gene_id)) {
             Gene gene = new Gene(cgd_gene_id, mgi_accession_id);
-            if (! symbol.equals(""))
+            if (! "".equals(symbol))
                 gene.setSymbol(symbol);
-            if (! name.equals(""))
+            if (! "".equals(name))
                 gene.setName(name);
             this.genes.put(cgd_gene_id, gene);
         }
