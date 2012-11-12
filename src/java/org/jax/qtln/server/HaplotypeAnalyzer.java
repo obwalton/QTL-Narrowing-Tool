@@ -31,7 +31,9 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import org.jax.qtln.db.CGDSnpDB;
+import org.jax.qtln.snpsets.TabixSearcher;
 import org.jax.qtln.snpsets.SangerSNPFile;
+import org.jax.qtln.snpsets.UNCSNPFile;
 import org.jax.qtln.snpsets.TabixReader;
 
 /**
@@ -63,9 +65,10 @@ public class HaplotypeAnalyzer implements Runnable {
     private List strains;
     private Map<String, SNPFile> cgdSNPLookup;
     private SangerSNPFile sangerSNPFile;
+    private UNCSNPFile uncSNPFile;
     private CGDSnpDB snpLookup;
 
-    public enum SNPType {sanger, cgd_imputed};
+    public enum SNPType {sanger, unc, cgd_imputed};
     
     // Default snptype is Sanger
     private SNPType snpType = SNPType.sanger;
@@ -100,9 +103,14 @@ public class HaplotypeAnalyzer implements Runnable {
         this.snpType = SNPType.sanger;
     }
 
+    public HaplotypeAnalyzer (UNCSNPFile uncSNPs) {
+        this.uncSNPFile = uncSNPs;
+        this.snpType = SNPType.unc;
+    }
+
     /**
      * This method is used to actually execute the haplotype analysis.  See
-     * the class header for an explaination of the analysis.
+     * the class header for an explanation of the analysis.
      *
      * @param regions  This is a map of regions of interest by chromosome.
      *    The regions object is updated with SNPS that are found.
@@ -112,6 +120,7 @@ public class HaplotypeAnalyzer implements Runnable {
         System.out.println("In HaplotypeAnalyzer.doAnalysis...");
         //  The keys are chromsomes
         Set<String> keys = regions.keySet();
+        long start = System.currentTimeMillis();
         //  for each chromsome
         for (String key : keys) {
             //  for each region on the chromosome
@@ -122,6 +131,8 @@ public class HaplotypeAnalyzer implements Runnable {
             }
         }
 
+        long end = System.currentTimeMillis();
+        System.out.println("Analysis took: " + ((end - start) / 1000) + " seconds");
     }
     
     public void setChromosome(String chr) {
@@ -157,7 +168,9 @@ public class HaplotypeAnalyzer implements Runnable {
         if (this.snpType == SNPType.cgd_imputed) {
             returnRegion = getSnpsInRegionCgdImputed(chromosome, region);
         } else if (this.snpType == SNPType.sanger) {
-            returnRegion = getSnpsInRegionSanger(chromosome, region);
+            returnRegion = getSnpsInRegion(chromosome, region, (TabixSearcher)this.sangerSNPFile);
+        } else if (this.snpType == SNPType.unc) {
+            returnRegion = getSnpsInRegion(chromosome, region, (TabixSearcher)this.uncSNPFile);
         }
         return returnRegion;
     } 
@@ -227,10 +240,9 @@ public class HaplotypeAnalyzer implements Runnable {
         }
         return region;
     }
-
-
-    private Region getSnpsInRegionSanger(String chromosome, 
-            OverlappingRegion region) {
+    
+    private Region getSnpsInRegion(String chromosome, 
+            OverlappingRegion region, TabixSearcher snpFile) {
     
         //  get two lists from region:
         //      High responding strains
@@ -240,9 +252,12 @@ public class HaplotypeAnalyzer implements Runnable {
         HashMap<String, Integer>  diagnostics = new HashMap<String, Integer>();
         
         //  Find the array of candidate SNPs in the region.
-        TabixReader.Iterator iterator = sangerSNPFile.search(chromosome, 
+        System.out.println("Searching " + chromosome + ":" + region.getStart() + "-" + region.getEnd());
+        
+        TabixReader.Iterator iterator = snpFile.search(chromosome, 
                 region.getStart(), region.getEnd());
-        System.out.println("Back from searching " + chromosome + ":" + region.getStart() + "-" + region.getEnd());
+        
+        System.out.println("Done searching " + chromosome + ":" + region.getStart() + "-" + region.getEnd());
         int total_snp_count = 0;
         int snp_count = 0;
         
@@ -253,8 +268,8 @@ public class HaplotypeAnalyzer implements Runnable {
                 snp_line = iterator.next();
             else
                 snp_line = null;
-        } catch (IOException ioe) {
-            //  Problem reading the sanger file... Need a better way of 
+        } catch (Exception ioe) {
+            //  Problem reading the gz file... Need a better way of 
             //  handling exception
             ioe.printStackTrace();
         }
@@ -262,7 +277,7 @@ public class HaplotypeAnalyzer implements Runnable {
             total_snp_count += 1;
             SNP snp = null;
             try {
-                snp = sangerSNPFile.analyzeSNP(snp_line, highRespondingStrains,
+                snp = snpFile.analyzeSNP(snp_line, highRespondingStrains,
                         lowRespondingStrains);
             } catch (SNPDoesNotMeetCriteriaException e) {
                 //  TODO:  Consider logging snps that fail criteria and why
@@ -281,11 +296,14 @@ public class HaplotypeAnalyzer implements Runnable {
 
             }
             try {
+                
                 snp_line = iterator.next();
-            } catch (IOException ioe) {
-                //  Problem reading the sanger file... Need a better way of 
+            } catch (Exception ioe) {
+                //  Problem reading the gz file... Need a better way of 
                 //  handling exception
+                System.err.println("\n\n\n\n\n\n");
                 ioe.printStackTrace();
+                System.err.println("\n\n\n\n\n\n");
             }
         }
         region.setTotalNumSNPsInRegion(total_snp_count);
