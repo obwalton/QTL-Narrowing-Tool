@@ -46,6 +46,7 @@ import org.apache.solr.core.CoreContainer;
 import org.jax.qtln.mgisearch.QTLPhenotypeLoader;
 import org.xml.sax.SAXException;
 import org.jax.qtln.snpsets.SangerSNPFile;
+import org.jax.qtln.snpsets.UNCSNPFile;
 
 /**
  *
@@ -67,6 +68,7 @@ public class QTLServletContextListener implements ServletContextListener {
     private String snpDirName = "/Users/dow/workspace/QTLNarrowing/data/CGD/imputed";
     
     private String sangerSnpFile = "/Users/dow/workspace/cgd/RV/test_data/20110602-final-snps.vcf.gz";
+    private String uncSnpFile = "/Users/dow/workspace/cgd/RV/test_data/UNC_88_Combined.txt.gz";
     //  TODO: come up with a clever way of dealing with file name with changing
     //  version and build
     private String imputedSnpsBaseName =
@@ -218,15 +220,27 @@ public class QTLServletContextListener implements ServletContextListener {
             sc.setAttribute("SANGER_INIT_STATUS","FAIL");
         }
         
+        //  Set up the UNC SNP File for searching UNC SNPs
+        try {
+            UNCSNPFile usnpf = initUNCSNP(sc);
+            sc.setAttribute("uncSNPs", usnpf);
+            sc.setAttribute("UNC_INIT_STATUS","SUCCESS");
+        } catch (Exception e) {
+            sc.log("Failure setting up UNC SNPs...");
+            sc.log(e.getMessage());
+            sc.setAttribute("UNC_INIT_STATUS","FAIL");
+        }
+
         //  Set up the SNP Database
 
-        boolean success = true;
-        try {
+        //boolean success = true;
+        boolean success = false;
+        /*try {
             this.cgdSNPLookup = initSnpDB(sc);
         } catch (ServletException se) {
             sc.log(se.getMessage());
             success = false;
-        }
+        }*/
         if (!success) {
             sc.setAttribute("SNP_INIT_STATUS", "FAIL");
         } else {
@@ -268,6 +282,12 @@ public class QTLServletContextListener implements ServletContextListener {
         SangerSNPFile sangerSNPs = new SangerSNPFile(this.sangerSnpFile);
         sc.log("***** CONSTRUCTED SangerSNPFile. Has " + sangerSNPs.getStrains().size() + " Strains associated with it!");
         return sangerSNPs;
+    }
+
+    private UNCSNPFile initUNCSNP(ServletContext sc) {
+        UNCSNPFile uncSNPs = new UNCSNPFile(this.uncSnpFile);
+        sc.log("***** CONSTRUCTED UNCSNPFile. Has " + uncSNPs.getStrains().size() + " Strains associated with it!");
+        return uncSNPs;
     }
 
     private HashMap<String, SNPFile> initSnpDB(ServletContext sc)
@@ -483,6 +503,11 @@ public class QTLServletContextListener implements ServletContextListener {
         if (p.containsKey("sanger_snp_file_name")){
             this.sangerSnpFile =
                     p.getProperty("sanger_snp_file_name");
+        }
+        
+        if (p.containsKey("unc_snp_file_name")){
+            this.uncSnpFile =
+                    p.getProperty("unc_snp_file_name");
         }
         
         if (p.containsKey("data_directory")) {
