@@ -21,6 +21,8 @@
 
 package org.jax.qtln.db;
 
+import com.jolbox.bonecp.BoneCP;
+import java.io.*;
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.PreparedStatement;
@@ -33,9 +35,15 @@ import java.util.Arrays;
 import java.util.Calendar;
 import java.util.Date;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Properties;
+import java.util.Set;
+import java.util.concurrent.Callable;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
 
 /**
  *
@@ -54,8 +62,8 @@ public class CGDSnpDB {
         "8", "9","10","11", "12", "13", "14", "15", "16", "17", "18", "19", "X",
         "Y"};
 
-
-    private Connection connection;
+    private BoneCP pool;
+    //private Connection connection;
     private List chromosomes;
 
 
@@ -77,24 +85,48 @@ public class CGDSnpDB {
     }
 
     public Connection getConnection() 
-        throws SQLException
+        throws SQLException, ClassNotFoundException
     {
-        if (this.connection == null) {
+        if (this.pool == null) {
             try {
                 Properties props = new Properties(); // connection properties
                 props.put("user", this.user);
                 props.put("password", this.password);
-                this.connection = DriverManager.getConnection(this.protocol +
-                        "//" + dbHost + ":" + dbPort + "/" + database, props);
+                String dbUrl = this.protocol + "//" + dbHost + ":" + dbPort + "/" + database;
+                //this.connection = DriverManager.getConnection(this.protocol +
+                //        "//" + dbHost + ":" + dbPort + "/" + database, props);
+                
+                this.pool = ConnectionPoolFactory.createConnectionPool(driver,
+                        dbUrl, user, password);
             } catch (SQLException sql) {
                 printSQLException(sql);
                 throw sql;
+            } catch (ClassNotFoundException cnfe) {
+                System.out.println("Cound not file class in ConnectionPoolFactory");
+                throw cnfe;
             }
 
         }
-        return this.connection;
+        Connection c = pool.getConnection();
+
+        return c;
+    }
+    
+    public void shutdownConnectionPool() {
+        ConnectionPoolFactory.shutdownDatabase(pool);
     }
 
+    public static void executeSQL(Connection conn, String sql) 
+        throws SQLException
+    {
+        Statement st = conn.createStatement();
+        st.execute(sql);
+        st.close();
+    }
+    
+    
+
+    
     /**
      * Loads the appropriate JDBC driver for this environment/framework. For
      * example, if we are in an embedded environment, we load Derby's
@@ -146,6 +178,7 @@ public class CGDSnpDB {
      */
     public static void printSQLException(SQLException e)
     {
+        e.printStackTrace();
         // Unwraps the entire exception chain to unveil the real cause of the
         // Exception.
         while (e != null)
@@ -180,9 +213,12 @@ public class CGDSnpDB {
                 results.add(rs.getString(1));
 
             }
+            conn.close();
         } catch (SQLException sqle) {
             printSQLException(sqle);
             throw sqle;
+        } catch (ClassNotFoundException cnfe) {
+            cnfe.printStackTrace();
         } finally {
             try {
                 if (rs != null) {
@@ -213,10 +249,13 @@ public class CGDSnpDB {
             while(rs.next()) {
                 results.put(rs.getInt(1), rs.getString(2));
             }
+            conn.close();
         } catch (SQLException sqle) {
             printSQLException(sqle);
             throw sqle;
-        } finally {
+        } catch (ClassNotFoundException cnfe) {
+            cnfe.printStackTrace();
+        }  finally {
             try {
                 if (rs != null) {
                     rs.close();
@@ -232,6 +271,239 @@ public class CGDSnpDB {
 
     }
 
+    public static class SNPDetailFetcher
+            implements Callable {
+
+        private Connection connection;
+        private String chromosome;
+        private List<Integer> bpPosList;
+
+        public SNPDetailFetcher(Connection conn, String chromosome, List<Integer> bpPosList) {
+            this.connection = conn;
+            this.chromosome = chromosome;
+            //System.out.println("Contructing for chromosome " + chromosome);
+            this.bpPosList = bpPosList;
+        }
+
+        public List<List> call1() throws SQLException {
+            List<List> results = new ArrayList<List>();
+            String tempTable = "create temporary table _bp_pos ( bp_position INTEGER NOT NULL PRIMARY KEY );";
+            String detail_cmd = "select distinct s.snpid, sp.bp_position, "
+                    + "st._loc_func_key, st.gene_id, g.gene_start, g.gene_end, "
+                    + //"mgi.mgi_geneid, mgi.marker_symbol, mgi.marker_name, " +
+                    "(select mgi_geneid from cgd_genes_ensembl_mgi where gene_id = st.gene_id) mgi_geneid, "
+                    + "(select marker_symbol from cgd_genes_ensembl_mgi where gene_id = st.gene_id) marker_symbol, "
+                    + "(select marker_name from cgd_genes_ensembl_mgi where gene_id = st.gene_id) marker_name, "
+                    + "sa.accession_id as rs_number, sa2.accession_id as provider_id, "
+                    + "sas.source_name as provider "
+                    + "from _bp_pos bp, snp_main s LEFT JOIN (snp_accession sa) ON "
+                    + "(s.snpid = sa.snpid and sa.snpid_id_type = 1) "
+                    + "LEFT JOIN (snp_accession sa2, snp_source sas) ON "
+                    + "(s.snpid = sa2.snpid and sa2.snpid_id_type = 3 "
+                    + "and sa2.source_id = sas.source_id), "
+                    + "snp_position sp, snp_chromosome c, snp_by_source ss, "
+                    + "snp_transcript st, cgd_genes g "
+                    + "where chromosome_name = ? "
+                    + "and c.chromosome_id = sp.chromosome_id "
+                    + "and sp.bp_position = bp.bp_position "
+                    + "and sp.snpid = s.snpid "
+                    + "and s.snpid = ss.snpid "
+                    + "and ss.source_id in (15, 21) "
+                    + "and s.snpid = st.snpid "
+                    + "and st.gene_id = g.gene_id "
+                    + "order by sp.bp_position, s.snpid";
+            System.out.println(detail_cmd);
+            ResultSet rs = null;
+            Statement statement = null;
+            try {
+                System.out.println("Creating connection");
+
+                System.out.println("Creating temp table");
+                executeSQL(connection, tempTable);
+
+                System.out.println("Creating statement for insert");
+                // insert data into temp table
+                String sql = "insert into _bp_pos (bp_position) VALUE(?)";
+                //PreparedStatement pstmt = conn.prepareStatement(sql);
+                //for (Integer position: bpPosList) {
+                //    pstmt.setInt(1, position);
+                //    pstmt.executeUpdate();
+                //}
+                connection.setAutoCommit(false);
+                PreparedStatement st = connection.prepareStatement(sql);
+                /*
+                 * System.out.println("Writing example out file"); try {
+                 * FileOutputStream fstream = new
+                 * FileOutputStream("/Users/dow/workspace/QTLN/exampleSnps.txt");
+                 * // Get the object of DataInputStream DataOutputStream out =
+                 * new DataOutputStream(fstream); BufferedWriter bw = new
+                 * BufferedWriter(new OutputStreamWriter(out)); String strLine;
+                 * //Read File Line By Line for (Integer position: bpPosList) {
+                 * bw.write(position.toString()); bw.newLine(); } //Close the
+                 * input stream out.close(); } catch (Exception e) {
+                 * e.printStackTrace(); }
+                 */
+
+                System.out.println("Creating insert statements and adding to batch...");
+                for (Integer position : bpPosList) {
+                    st.setInt(1, position);
+                    st.addBatch();
+                }
+                System.out.println("Executing " + bpPosList.size() + " Inserts.");
+                long start = System.currentTimeMillis();
+                st.executeBatch();
+                //conn.commit();
+                long second = System.currentTimeMillis();
+                statement = connection.createStatement();
+                rs = statement.executeQuery("select count(1) from _bp_pos");
+                rs.next();
+                int count = rs.getInt(1);
+                System.out.println("inserted " + count + " rows");
+                System.out.println("Inserts took: " + ((second - start) / 1000) + " seconds");
+                //System.out.println("Executing batch inserts...");
+                //int[] numInserted = st.executeBatch();
+                //System.out.println("numInserted = " + numInserted.length);
+
+                System.out.println("creating statement for query");
+                PreparedStatement statement2 = connection.prepareStatement(detail_cmd);
+                statement2.setFetchSize(Integer.MIN_VALUE);//statement.setFetchSize(10000);
+                System.out.println("add chromosome to query " + chromosome);
+                statement2.setString(1, chromosome);
+
+                System.out.println("START: " + now_formatted());
+                rs = statement2.executeQuery();
+                System.out.println("END: " + now_formatted());
+                long last = System.currentTimeMillis();
+                System.out.println("Data added to result set in " + ((last - second) / 1000) + " seconds");
+                System.out.println("done with Query, now parse results...");
+                while (rs.next()) {
+                    List these = new ArrayList();
+                    these.add(rs.getInt(1));    //  snpid
+                    these.add(rs.getInt(2));    //  bpPosition
+                    these.add(rs.getInt(3));    //  _loc_func_key
+                    these.add(rs.getInt(4));    //  gene_id
+                    these.add(rs.getInt(5));    //  gene_start
+                    these.add(rs.getInt(6));    //  gene_end
+                    these.add(rs.getString(7)); // mgi_geneid
+                    these.add(rs.getString(8)); // gene symbol
+                    these.add(rs.getString(9)); // gene name
+                    these.add(rs.getString(10)); // rs number
+                    these.add(rs.getString(11)); // provider id
+                    these.add(rs.getString(12)); // provider
+                    results.add(these);
+
+                }
+                System.out.println("RESULT SIZE: " + results.size());
+                Statement dropStmt = connection.createStatement();
+                dropStmt.executeUpdate("drop temporary table _bp_pos");
+                connection.close();
+            } catch (SQLException sqle) {
+                printSQLException(sqle);
+                throw sqle;
+            } finally {
+                try {
+                    if (rs != null) {
+                        rs.close();
+                    }
+                    if (statement != null) {
+                        statement.close();
+                    }
+                } catch (SQLException sqle) {
+                    printSQLException(sqle);
+                }
+            }
+            return results;
+        }
+        
+        public List<List> call() throws SQLException {
+            List<List> results = new ArrayList<List>();
+            String detail_cmd = "select distinct s.snpid, sp.bp_position, "
+                    + "st._loc_func_key, st.gene_id, g.gene_start, g.gene_end, "
+                    + //"mgi.mgi_geneid, mgi.marker_symbol, mgi.marker_name, " +
+                    "(select mgi_geneid from cgd_genes_ensembl_mgi where gene_id = st.gene_id) mgi_geneid, "
+                    + "(select marker_symbol from cgd_genes_ensembl_mgi where gene_id = st.gene_id) marker_symbol, "
+                    + "(select marker_name from cgd_genes_ensembl_mgi where gene_id = st.gene_id) marker_name, "
+                    + "sa.accession_id as rs_number, sa2.accession_id as provider_id, "
+                    + "sas.source_name as provider "
+                    + "from snp_main s LEFT JOIN (snp_accession sa) ON "
+                    + "(s.snpid = sa.snpid and sa.snpid_id_type = 1) "
+                    + "LEFT JOIN (snp_accession sa2, snp_source sas) ON "
+                    + "(s.snpid = sa2.snpid and sa2.snpid_id_type = 3 "
+                    + "and sa2.source_id = sas.source_id), "
+                    + "snp_position sp, snp_chromosome c, snp_by_source ss, "
+                    + "snp_transcript st, cgd_genes_ensembl_mgi mgi, cgd_genes g "
+                    + "where chromosome_name =  '"
+                    + this.chromosome + "' "
+                    + "and c.chromosome_id = sp.chromosome_id "
+                    + "and sp.bp_position in (";
+            boolean first = true;
+            for (Integer position : bpPosList) {
+                if (first) {
+                    detail_cmd += position;
+                    first = false;
+                } else {
+                    detail_cmd += "," + position;
+                }
+
+            }
+            // snpid_type_id will only bring back RS numbers
+            detail_cmd += ")"
+                    + "and sp.snpid = s.snpid "
+                    + "and s.snpid = ss.snpid "
+                    + "and ss.source_id in (15, 16, 21) "
+                    + "and s.snpid = st.snpid "
+                    + "and st.gene_id = mgi.gene_id "
+                    + "and st.gene_id = g.gene_id "
+                    + "order by sp.bp_position, s.snpid";
+            //System.out.println("Query has " + bpPosList.size() + " positions: " + detail_cmd);
+            ResultSet rs = null;
+            Statement statement = null;
+            try {
+                statement = connection.createStatement();
+                long start = System.currentTimeMillis();
+                rs = statement.executeQuery(detail_cmd);
+                long second = System.currentTimeMillis();
+                //System.out.println("Query took: " + ((second - start) / 1000) + " seconds");
+                while (rs.next()) {
+                    List these = new ArrayList();
+                    these.add(rs.getInt(1));    //  snpid
+                    these.add(rs.getInt(2));    //  bpPosition
+                    these.add(rs.getInt(3));    //  _loc_func_key
+                    these.add(rs.getInt(4));    //  gene_id
+                    these.add(rs.getInt(5));    //  gene_start
+                    these.add(rs.getInt(6));    //  gene_end
+                    these.add(rs.getString(7)); // mgi_geneid
+                    these.add(rs.getString(8)); // gene symbol
+                    these.add(rs.getString(9)); // gene name
+                    these.add(rs.getString(10)); // rs number
+                    these.add(rs.getString(11)); // provider id
+                    these.add(rs.getString(12)); // provider
+                    results.add(these);
+
+                }
+                long last = System.currentTimeMillis();
+                connection.close();
+
+            } catch (SQLException sqle) {
+                printSQLException(sqle);
+                throw sqle;
+            } finally {
+                try {
+                    if (rs != null) {
+                        rs.close();
+                    }
+                    if (statement != null) {
+                        statement.close();
+                    }
+                } catch (SQLException sqle) {
+                    printSQLException(sqle);
+                }
+            }
+            return results;
+        }
+
+        
+    }
     /**
      * getSNPDetail is intended to get all the SNPs on the given chromosome,
      * in the list of positions.  It uses the CGDSnpDB class
@@ -244,83 +516,50 @@ public class CGDSnpDB {
     public List<List> getSNPDetails(String chromosome, List<Integer> bpPosList)
             throws SQLException
     {
+        System.out.println("Begin processing for CHROMOSOME = " + chromosome);
+        List<List<Integer>> bins = new ArrayList<List<Integer>>();
         List<List> results = new ArrayList<List>();
-        String detail_cmd = "select distinct s.snpid, sp.bp_position, " +
-                "st._loc_func_key, st.gene_id, g.gene_start, g.gene_end, " +
-                "mgi.mgi_geneid, mgi.marker_symbol, mgi.marker_name, " +
-                "sa.accession_id as rs_number, sa2.accession_id as provider_id, " +
-                "sas.source_name as provider " +
-                "from snp_main s LEFT JOIN (snp_accession sa) ON " +
-                "(s.snpid = sa.snpid and sa.snpid_id_type = 1) " +
-                "LEFT JOIN (snp_accession sa2, snp_source sas) ON " +
-                "(s.snpid = sa2.snpid and sa2.snpid_id_type = 3 " +
-                "and sa2.source_id = sas.source_id), " +
-                "snp_position sp, snp_chromosome c, snp_by_source ss, " +
-                "snp_transcript st, cgd_genes_ensembl_mgi mgi, cgd_genes g " +
-                "where chromosome_name =  '" +
-                chromosome + "' " +
-                "and c.chromosome_id = sp.chromosome_id " +
-                "and sp.bp_position in (";
-        boolean first = true;
-        for (Integer position: bpPosList) {
-            if (first) {
-                detail_cmd += position;
-                first = false;
+        List<Integer> bin = new ArrayList<Integer>();
+        for (int i = 0; i < bpPosList.size(); i++) {
+            if (( i % 1000) == 0 && i > 0) {
+                bins.add(bin);
+                bin = new ArrayList<Integer>();
             }
-            else
-                detail_cmd += "," + position;
-
+            bin.add(bpPosList.get(i));
         }
-        // snpid_type_id will only bring back RS numbers
-        detail_cmd += ")" +
-                "and sp.snpid = s.snpid " +
-                "and s.snpid = ss.snpid " +
-                "and ss.source_id in (15, 16, 21) " +
-                "and s.snpid = st.snpid " +
-                "and st.gene_id = mgi.gene_id " +
-                "and st.gene_id = g.gene_id " +
-                "order by sp.bp_position, s.snpid";
-        //System.out.println(detail_cmd);
-        ResultSet rs = null;
-        Statement statement = null;
+        bins.add(bin);
+
+        ExecutorService executor = Executors.newFixedThreadPool(10);
+        Set<Future<List<List>>> set = new HashSet<Future<List<List>>>();
         try {
-            Connection conn = this.getConnection();
-            statement = conn.createStatement();
-            rs = statement.executeQuery(detail_cmd);
-            while(rs.next()) {
-                List these = new ArrayList();
-                these.add(rs.getInt(1));    //  snpid
-                these.add(rs.getInt(2));    //  bpPosition
-                these.add(rs.getInt(3));    //  _loc_func_key
-                these.add(rs.getInt(4));    //  gene_id
-                these.add(rs.getInt(5));    //  gene_start
-                these.add(rs.getInt(6));    //  gene_end
-                these.add(rs.getString(7)); // mgi_geneid
-                these.add(rs.getString(8)); // gene symbol
-                these.add(rs.getString(9)); // gene name
-                these.add(rs.getString(10)); // rs number
-                these.add(rs.getString(11)); // provider id
-                these.add(rs.getString(12)); // provider
-                results.add(these);
-
+            int numConOpen = 0;
+            for (List<Integer> subSet : bins) {
+                //  for each subset regions
+                Connection conn = this.getConnection();
+                Callable<List<List>> callable = new SNPDetailFetcher(conn, 
+                        chromosome, subSet);
+                Future<List<List>> future = executor.submit(callable);
+                set.add(future);
+                //conn.close();
+                //--numConOpen;
             }
-        } catch (SQLException sqle) {
-            printSQLException(sqle);
-            throw sqle;
-        } finally {
-            try {
-                if (rs != null) {
-                    rs.close();
-                }
-                if (statement != null) {
-                    statement.close();
-                }
-            } catch (SQLException sqle) {
-                printSQLException(sqle);
+            for (Future<List<List>> future : set) {
+                results.addAll(future.get());
             }
+        } catch (Exception e) {
+            e.printStackTrace();
         }
+        // This will make the executor accept no new threads
+        // and finish all existing threads in the queue
+        executor.shutdown();
+        // Wait until all threads are finish
+        while (!executor.isTerminated()) {
+        }
+        System.out.println("Finished all threads");
+
         return results;
     }
+
 
 
 
@@ -339,12 +578,37 @@ public class CGDSnpDB {
     }
 
 
-    public static void main (String[] args) {
-        
-        CGDSnpDB querySnpDB = new CGDSnpDB("cgddb.jax.org", "44444", "cgdsnpdb",
-                "pup", "puppass");
+    public static void main(String[] args) {
+        try {
+            CGDSnpDB querySnpDB = new CGDSnpDB("cgd-dev.jax.org", "3306", "cgd_snpdb",
+                    "cssc", "sp00nm3");
+            List<Integer> bpPosList = new ArrayList<Integer>();
 
+
+            FileInputStream fstream = new FileInputStream("/Users/dow/snps.csv");
+            // Get the object of DataInputStream
+            DataInputStream in = new DataInputStream(fstream);
+            BufferedReader br = new BufferedReader(new InputStreamReader(in));
+            String strLine;
+            //Read File Line By Line
+            while ((strLine = br.readLine()) != null) {
+                // Print the content on the console
+                bpPosList.add(Integer.parseInt(strLine));
+            }
+            //Close the input stream
+            in.close();
+
+
+
+
+            bpPosList = new ArrayList<Integer>(bpPosList.subList(70000, 80000));
+
+
+
+            querySnpDB.getSNPDetails("1", bpPosList);
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
         System.exit(0);
     }
-
 }
