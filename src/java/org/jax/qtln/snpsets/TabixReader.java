@@ -375,22 +375,26 @@ public class TabixReader
 	}
 
 	public static void main(String[] args) {
-		if (args.length < 1) {
+		if (args.length < 0) {
 			System.out.println("Usage: java -cp .:sam.jar TabixReader <in.gz> [region]");
 			System.exit(1);
 		}
 		try {
-			TabixReader tr = new TabixReader(args[0]);
+			//TabixReader tr = new TabixReader(args[0]);
+                        TabixReader tr = new TabixReader("/Users/dow/workspace/QTLN/20110125-final_v4.vcf.gz");
 			String s;
 			if (args.length == 1) { // no region is specified; print the whole file
 				while ((s = tr.readLine()) != null)
 					System.out.println(s);
 			} else { // a region is specified; random access
-				TabixReader.Iterator iter = tr.query(args[1]); // get the iterator
-				while (iter != null && (s = iter.next()) != null)
-					System.out.println(s);
+		            //TabixReader.Iterator iter = tr.query(args[1]); // get the iterator
+                            TabixReader.Iterator iter = tr.query("2:142442996-162885987"); // get the iterator
+				while (iter != null && (s = iter.next()) != null) {
+					//System.out.println(s);
+                                }
 			}
 		} catch (IOException e) {
+                    e.printStackTrace();
 		}
 	}
 }
