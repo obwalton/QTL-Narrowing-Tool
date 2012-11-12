@@ -297,8 +297,8 @@ public class ExpressionAnalyzer {
                         List<String> strainSamples =
                                 this.strainLookup.get(strain);
                         if (strainSamples == null) {
-                            System.out.println("For MGI ID: " + mgiId + " probe: " + probe + " HR strain " + strain + " there were no associated samples!");
-                            System.out.println("skipping");
+                            //System.out.println("For MGI ID: " + mgiId + " probe: " + probe + " HR strain " + strain + " there were no associated samples!");
+                            //System.out.println("skipping");
                             continue;
                         }
                         for (String sample : strainSamples) {
@@ -318,8 +318,8 @@ public class ExpressionAnalyzer {
                         List<String> strainSamples =
                                 this.strainLookup.get(strain);
                         if (strainSamples == null) {
-                            System.out.println("For MGI ID: " + mgiId + " probe: " + probe + " LR strain " + strain + " there were no associated samples!");
-                            System.out.println("skipping");
+                            //System.out.println("For MGI ID: " + mgiId + " probe: " + probe + " LR strain " + strain + " there were no associated samples!");
+                            //System.out.println("skipping");
                             continue;
                         }
                         for (String sample : strainSamples) {
