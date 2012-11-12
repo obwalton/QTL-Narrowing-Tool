@@ -56,11 +56,13 @@ import com.extjs.gxt.ui.client.widget.layout.MarginData;
 import com.extjs.gxt.ui.client.widget.tips.QuickTip;
 import com.google.gwt.core.client.EntryPoint;
 import com.google.gwt.core.client.GWT;
+import com.google.gwt.event.dom.client.ChangeEvent;
+import com.google.gwt.event.dom.client.ChangeHandler;
+import com.google.gwt.event.dom.client.ClickEvent;
+import com.google.gwt.event.dom.client.ClickHandler;
 import com.google.gwt.user.client.ui.Button;
 import com.google.gwt.user.client.ui.Label;
 import com.google.gwt.user.client.ui.RootPanel;
-import com.google.gwt.event.dom.client.ClickEvent;
-import com.google.gwt.event.dom.client.ClickHandler;
 import com.google.gwt.i18n.client.NumberFormat;
 import com.google.gwt.user.client.DOM;
 import com.google.gwt.user.client.Element;
@@ -159,8 +161,6 @@ public class QTLNarrowingEntryPoint implements EntryPoint {
     private Listener alertListener;
     private final RadioButton gexRadio0 =
             new RadioButton("gexGroup", "Gene Expression Comparison");
-    private final RadioButton gexRadio1 =
-            new RadioButton("gexGroup", " Upload RMA File:");
     private final RadioButton gexRadio2 =
             new RadioButton("gexGroup", " No Gene Expression Comparison");
     private final ListBox gexListBox = new ListBox();
@@ -315,28 +315,29 @@ public class QTLNarrowingEntryPoint implements EntryPoint {
             public void onSuccess(Map<String,String[]> results) {
                 System.out.println("IN SUCCESS CASE GET STRAINS");
                 strainMap = results;
-                boolean first_button = true;
                 GWT.log(results.keySet().toString());
+                final ListBox snpSetSelector = new ListBox();
+                boolean first = true;
                 for (String key:(Set<String>)results.keySet()) {
-                    final RadioButton strainButton = new RadioButton("strainGroup", key);
-                    strainButton.addClickHandler(new ClickHandler() {
-                        public void onClick(ClickEvent event) {
-                            if (strainButton.getValue()) {
-                                snpSet = strainButton.getText();
-                                strains = strainMap.get(snpSet);
-                                updateStrainCombos();
-                                // TODO: Probably should call a validateQTLList method here!!
-                            }
-                        }
-                    });
-                    if (first_button) {
-                        strainButton.setValue(true);
+                    snpSetSelector.addItem(key);
+                    if (first) {
+                        GWT.log("First snpset key " + key);
                         snpSet = key;
                         strains = strainMap.get(key);
-                        first_button = false;
+                        first = false;
                     }
-                    strainPanel.add(strainButton);
                 }
+                snpSetSelector.addChangeHandler(new ChangeHandler() {
+                    public void onChange(ChangeEvent event) {
+                        int idx = snpSetSelector.getSelectedIndex();
+                        snpSet = snpSetSelector.getValue(idx);
+                        strains = strainMap.get(snpSet);
+                        GWT.log("in onChange -  calling updateStrainCombos()");
+                        updateStrainCombos();
+                    }
+                });
+
+                strainPanel.add(snpSetSelector);
 
                 final EditorGrid qtlTable = initEditableQTLTable();
                 qtlTable.setClicksToEdit(EditorGrid.ClicksToEdit.TWO);
@@ -407,7 +408,7 @@ public class QTLNarrowingEntryPoint implements EntryPoint {
                 qtlPanel.getHeader().addTool(help);
 
                 qtlPanel.add(qtlTable);
-
+               
                 internalPrep.add(qtlPanel);
 
                 ContentPanel gexCP = new ContentPanel();
@@ -451,54 +452,6 @@ public class QTLNarrowingEntryPoint implements EntryPoint {
                 defaultGEXPanel.add(gexListBox);
                 radioPanel.add(defaultGEXPanel);
 
-                HorizontalPanel customGEXPanel = new HorizontalPanel();
-                customGEXPanel.setSpacing(5);
-                customGEXPanel.add(gexRadio1);
-                //  Disable during ALPHA release
-                //  TODO:  Reenable after ALPHA release
-                gexRadio1.setEnabled(false);
-
-                // Create a FormPanel for GEX file upload.  This is strictly to
-                // support file upload.
-                final FormPanel gexForm = new FormPanel();
-                gexForm.setAction(UPLOAD_ACTION_URL);
-
-                // Because we're going to add a FileUpload widget, we'll need to set the
-                // form to use the POST method, and multipart MIME encoding.
-                gexForm.setEncoding(FormPanel.ENCODING_MULTIPART);
-                gexForm.setMethod(FormPanel.METHOD_POST);
-
-                // Create a panel to hold all of the form widgets.  Again, this is being
-                // used to support file upload
-                HorizontalPanel gexPanel = new HorizontalPanel();
-                gexPanel.setSpacing(5);
-                gexForm.setWidget(gexPanel);
-
-                // Create a FileUpload widget.
-                final FileUpload gexUpload = new FileUpload();
-                gexUpload.setWidth("480");
-                // To force the width of the upload text box in Firefox
-                Element gexEe = gexUpload.getElement();
-                DOM.setAttribute(gexEe, "size", "55"); // make Firefox 1.5.0.7 happy
-                //  Disable during ALPHA release
-                //  TODO:  Reenable after ALPHA release
-                gexUpload.setEnabled(false);
-                gexUpload.setName("uploadGEXFile");
-                HorizontalPanel gexUploadPanel = new HorizontalPanel();
-                gexUploadPanel.setSpacing(5);
-                gexUploadPanel.add(gexUpload);
-                gexUploadPanel.add(gexUploadButton);
-                //  Disable during ALPHA release
-                //  TODO:  Reenable after ALPHA release
-                gexUploadButton.setEnabled(false);
-                //  This is used for the File Upload Servlet to be able to identify
-                //  type of file uploaded
-                Hidden gexFileType = new Hidden("FileType", "GEXFile");
-                gexUploadPanel.add(gexFileType);
-                gexPanel.add(gexUploadPanel);
-
-                customGEXPanel.add(gexForm);
-                radioPanel.add(customGEXPanel);
 
                 HorizontalPanel noGEXPanel = new HorizontalPanel();
                 noGEXPanel.setSpacing(5);
@@ -1065,7 +1018,7 @@ public class QTLNarrowingEntryPoint implements EntryPoint {
                     // Determine whether or not we are doing a Gene Expression
                     // Comparison, and if so, what kind.
                     doGEX = false;
-                    if (gexRadio0.getValue() || gexRadio1.getValue()) {
+                    if (gexRadio0.getValue()) {
                         doGEX = true;
                         if (gexRadio0.getValue()) {
                             int idx = gexListBox.getSelectedIndex();
@@ -1118,11 +1071,12 @@ public class QTLNarrowingEntryPoint implements EntryPoint {
                 String[] l_strains = new String[0];
                 //  Skip the first widget as it's the label
                 for (int i = 1; i < strainPanel.getWidgetCount(); i++) {
-                    RadioButton b = (RadioButton)strainPanel.getWidget(i);
-                    GWT.log("Checking widget number " + i + " name " + b.getText() + " value " + b.getValue());
-                    if (b.getValue()) {
-                        l_strains = strainMap.get(b.getText());
-                    }
+                    ListBox b = (ListBox)strainPanel.getWidget(i);
+                    int idx = b.getSelectedIndex();
+                    GWT.log("Checking widget number " + i + " name " + b.getName() + " value " + b.getValue(idx));
+                    //if (b.getValue(idx) ) {
+                        l_strains = strainMap.get(b.getValue(idx));
+                    //}
                 }
                 if (Arrays.binarySearch(l_strains, val) > -1) {
                     html = val;
@@ -1455,7 +1409,7 @@ public class QTLNarrowingEntryPoint implements EntryPoint {
     }
 
     private void updateStrainCombos() {
-
+        GWT.log("IN updateStrainCombos");
         EditorGrid qtlTable = (EditorGrid) qtlPanel.getWidget(0);
         ColumnModel cm = qtlTable.getColumnModel();
         ColumnConfig hrcolumn = cm.getColumnById("hrstrain");
@@ -1466,11 +1420,12 @@ public class QTLNarrowingEntryPoint implements EntryPoint {
         String[] l_strains = new String[0];
         //  Skip the first widget as it's the label
         for (int i = 1; i < strainPanel.getWidgetCount(); i++) {
-            RadioButton b = (RadioButton) strainPanel.getWidget(i);
-            GWT.log("Checking widget number " + i + " name " + b.getText() + " value " + b.getValue());
-            if (b.getValue()) {
-                l_strains = strainMap.get(b.getText());
-            }
+            ListBox b = (ListBox) strainPanel.getWidget(i);
+            int idx = b.getSelectedIndex();
+            GWT.log("Checking widget number " + i + " name " + b.getName() + " value " + b.getValue(idx));
+            //if (b.getValue(idx) ) {
+            l_strains = strainMap.get(b.getValue(idx));
+            //}
         }
         for (String strain : l_strains) {
             combo1.add(strain);
@@ -2542,7 +2497,6 @@ public class QTLNarrowingEntryPoint implements EntryPoint {
         qtlList.removeAll();
 
         gexRadio0.setValue(true);
-        gexRadio1.setValue(false);
         gexRadio2.setValue(false);
         gexUploadButton.setEnabled(false);  // should be false when radio false
         doGEX = false;
