@@ -51,6 +51,7 @@ import org.jax.qtln.regions.QTL;
 import org.jax.qtln.regions.ReturnRegion;
 import org.jax.qtln.regions.SNP;
 import org.jax.qtln.snpsets.SangerSNPFile;
+import org.jax.qtln.snpsets.UNCSNPFile;
 
 /**
  * The server side implementation of the RPC service.
@@ -100,6 +101,7 @@ public class QTLServiceImpl extends RemoteServiceServlet implements
     private static SolrServer solrServer;
     
     private static SangerSNPFile sangerSNPFile;
+    private static UNCSNPFile uncSNPFile;
 
     /** init
      * Runs inititalizations that must occur before methods of servlet are run.
@@ -150,6 +152,10 @@ public class QTLServiceImpl extends RemoteServiceServlet implements
                 (String) context.getAttribute("SANGER_INIT_STATUS"));
         QTLServiceImpl.sangerSNPFile =
                 (SangerSNPFile)context.getAttribute("sangerSNPs");
+        System.out.println("UNC INITIALIZATION = " + 
+                (String) context.getAttribute("UNC_INIT_STATUS"));
+        QTLServiceImpl.uncSNPFile =
+                (UNCSNPFile)context.getAttribute("uncSNPs");
        
         
         //  If any of these were not provided with user properties, we'll
@@ -177,7 +183,9 @@ public class QTLServiceImpl extends RemoteServiceServlet implements
                 QTLServiceImpl.db_user, QTLServiceImpl.db_password);
         try {
             if (QTLServiceImpl.snpLocFuncs == null) {
+                
                 QTLServiceImpl.snpLocFuncs = snpDb.getSNPLocFuncList();
+                snpDb.shutdownConnectionPool();
             }
         } catch (SQLException sqle) {
             throw new ServletException(sqle.getMessage());
@@ -224,6 +232,7 @@ public class QTLServiceImpl extends RemoteServiceServlet implements
         Map<String, String[]> strains = new HashMap<String,String[]>();
         System.out.println ("IN getStrains");
         String[] sanger_strains = new String[0];
+        String[] unc_strains = new String[0];
         String[] cgd_imputed_strains = new String[0];
         boolean found_strains = false;
         if (QTLServiceImpl.cgdSNPLookup != null) {
@@ -247,7 +256,22 @@ public class QTLServiceImpl extends RemoteServiceServlet implements
         if (QTLServiceImpl.sangerSNPFile != null) {
             List<String> strain_list = QTLServiceImpl.sangerSNPFile.getStrains();
             System.out.println("There are " + strain_list.size() + " Sanger strains.");
+            for (String strain: strain_list) {
+                System.out.println(strain);
+            }
             sanger_strains = strain_list.toArray(new String[0]);
+            found_strains = true;
+        }
+        
+        System.out.println("Now get UNC Strains...");
+        
+        if (QTLServiceImpl.uncSNPFile != null) {
+            List<String> strain_list = QTLServiceImpl.uncSNPFile.getStrains();
+            System.out.println("There are " + strain_list.size() + " UNC strains.");
+            for (String strain: strain_list) {
+                System.out.println(strain);
+            }
+            unc_strains = strain_list.toArray(new String[0]);
             found_strains = true;
         }
         
@@ -256,6 +280,11 @@ public class QTLServiceImpl extends RemoteServiceServlet implements
                 strains.put("sanger", sanger_strains);
                 System.out.println("Returning " + sanger_strains.length + 
                         " sanger strains");
+            }
+            if (unc_strains.length > 0) {
+                strains.put("unc", unc_strains);
+                System.out.println("Returning " + unc_strains.length + 
+                        " unc strains");
             }
             if (cgd_imputed_strains.length > 0) {
                 strains.put("cgd_imputed", cgd_imputed_strains);
@@ -353,6 +382,9 @@ public class QTLServiceImpl extends RemoteServiceServlet implements
             } else if (snpSet.equals("sanger")) {
                 
                 haplotypeAnalyzer = new HaplotypeAnalyzer(this.sangerSNPFile);
+            } else if (snpSet.equals("unc")) {
+                
+                haplotypeAnalyzer = new HaplotypeAnalyzer(this.uncSNPFile);
             }
             try {
                 // TESTING threading for peformance improvement using the
@@ -438,6 +470,8 @@ public class QTLServiceImpl extends RemoteServiceServlet implements
                 List<ReturnRegion> regionReturn = new ArrayList<ReturnRegion>();
                 System.out.println(chr + " has " + myRegions.size() + " regions.");
                 DecimalFormat fmt = new DecimalFormat("#,##0");
+                long start = System.currentTimeMillis();
+
                 for (Region region : myRegions) {
                     ReturnRegion oneRegion = new ReturnRegion();
                     String region_key = new String();
@@ -503,8 +537,12 @@ public class QTLServiceImpl extends RemoteServiceServlet implements
                     oneRegion.setGenes(genes);
                     regionReturn.add(oneRegion);
                 }
+                long end = System.currentTimeMillis();
+                System.out.println("Fetching SNP details took: " + ((end - start) / 1000) + " seconds");
+
                 ret_results.put(chr, regionReturn);
             }
+            snpDb.shutdownConnectionPool();
             // TODO:  Bag this if we determine there is no reason to come
             // back down to server to get more data..
             // Put our results in the session object so the user can get this
