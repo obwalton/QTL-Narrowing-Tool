@@ -38,6 +38,7 @@ import com.extjs.gxt.ui.client.widget.MessageBox;
 import com.extjs.gxt.ui.client.widget.ProgressBar;
 import com.extjs.gxt.ui.client.widget.Window;
 import com.extjs.gxt.ui.client.widget.button.ToolButton;
+import com.extjs.gxt.ui.client.widget.form.CheckBox;
 import com.extjs.gxt.ui.client.widget.form.ComboBox.TriggerAction;
 import com.extjs.gxt.ui.client.widget.form.NumberField;
 import com.extjs.gxt.ui.client.widget.form.SimpleComboBox;
@@ -152,6 +153,7 @@ public class QTLNarrowingEntryPoint implements EntryPoint {
     private Label mgiLabel = new Label("QTL Template by Phenotype from MGI:");
     private TextBox mgiTextBox = new TextBox();
     private Button mgiButton = new Button("Search MGI");
+    private CheckBox mgiCheckBox = new CheckBox();
     private Label uploadLabel = new Label("Upload Custom QTL File:");
     private Button uploadButton = new Button("Upload");
     private final HorizontalPanel uploadPanel = new HorizontalPanel();
@@ -246,16 +248,19 @@ public class QTLNarrowingEntryPoint implements EntryPoint {
         // All widgets have to be given names so they can be submitted via the
         // form. Again this is due to the use of the file upload.
         mgiTextBox.setName("mgi_text");
-        mgiTextBox.setWidth("400");
+        mgiTextBox.setWidth("300");
         // Disable until we get phenotype searching set up
         mgiTextBox.setEnabled(true);
         mgiButton.setEnabled(true);
-
+        
+        mgiCheckBox.setBoxLabel("+/- 10Mb?");
+        mgiCheckBox.setEnabled(true);
 
         HorizontalPanel mgiPanel = new HorizontalPanel();
         mgiPanel.setSpacing(5);
         mgiPanel.add(mgiLabel);
         mgiPanel.add(mgiTextBox);
+        mgiPanel.add(mgiCheckBox);
         mgiPanel.add(mgiButton);
         panel.add(mgiPanel);
 
@@ -448,6 +453,8 @@ public class QTLNarrowingEntryPoint implements EntryPoint {
                 gexListBox.addItem("12 Strain Survey in Liver", "liver");
                 gexListBox.addItem("12 Strain Survey in Liver - high fat diet", "liverhf");
                 gexListBox.addItem("12 Strain Survey in Liver - 6% chow diet", "liverlf");
+                gexListBox.addItem("Spontaneous Alopecia Areata", "spontaneous");
+                gexListBox.addItem("Skin Graft Alopecia Areata", "skingraft");
                 gexListBox.setVisibleItemCount(1);
                 defaultGEXPanel.add(gexListBox);
                 radioPanel.add(defaultGEXPanel);
@@ -595,6 +602,19 @@ public class QTLNarrowingEntryPoint implements EntryPoint {
                             //  occuring with suspected uncaught exceptions
                             try {
                                 Dialog d = new Dialog();
+                                // The mgi Check Box is select expand the range of each
+                                // QTL by 10Mb.
+                                if (mgiCheckBox.getValue()) {
+                                    for (Map<String, String> map : results) {
+                                        int start = Integer.parseInt(map.get("start"));
+                                        if (start < 10000000) start = 1;
+                                        else start -= 10000000;
+                                        int end = Integer.parseInt(map.get("end"));
+                                        end += 10000000;
+                                        map.put("start", "" + start);
+                                        map.put("end", "" + end);
+                                    }
+                                }
                                 final Grid qtlGrid = initPhenoSearchTable(results);
 
                                 // Create a Dialog object
