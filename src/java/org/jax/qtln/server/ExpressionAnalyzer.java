@@ -62,6 +62,7 @@ public class ExpressionAnalyzer {
     private double[][] intensityMatrix;
     // Strain -> [Sample names...]
     private Map<String, List<String>> strainLookup;
+    private Map<String, String> strainXRef;
 
     /**
      * This constructor is used for the case where the supporting lookups are
@@ -74,7 +75,8 @@ public class ExpressionAnalyzer {
     public ExpressionAnalyzer (Map<String, List<String>> probeSetLookup,
                 Map<String,Map<String,String>> mgiLookup,
                 Map intensityLookup,
-                Map<String, List<String>> strainLookup) {
+                Map<String, List<String>> strainLookup,
+                Map<String,String> strainXRef) {
         this.probeSetLookup = probeSetLookup;
         this.mgiLookup = mgiLookup;
         this.intensityLookup = intensityLookup;
@@ -83,6 +85,7 @@ public class ExpressionAnalyzer {
         this.intensityMatrix =
                 (double[][])this.intensityLookup.get("intensities");
         this.strainLookup = strainLookup;
+        this.strainXRef = strainXRef;
     }
 
     public Map parseRMA(String rmaFileName, ServletContext sc)
@@ -294,8 +297,9 @@ public class ExpressionAnalyzer {
                 for (String probe : probeIds) {
                     int probe_pos = this.probes.indexOf(probe);
                     for (String strain : region.getHighRespondingStrains()) {
+                        String expStrain = this.strainXRef.get(strain);
                         List<String> strainSamples =
-                                this.strainLookup.get(strain);
+                                this.strainLookup.get(expStrain);
                         if (strainSamples == null) {
                             //System.out.println("For MGI ID: " + mgiId + " probe: " + probe + " HR strain " + strain + " there were no associated samples!");
                             //System.out.println("skipping");
@@ -315,8 +319,9 @@ public class ExpressionAnalyzer {
                         }
                     }
                     for (String strain : region.getLowRespondingStrains()) {
+                        String expStrain = this.strainXRef.get(strain);
                         List<String> strainSamples =
-                                this.strainLookup.get(strain);
+                                this.strainLookup.get(expStrain);
                         if (strainSamples == null) {
                             //System.out.println("For MGI ID: " + mgiId + " probe: " + probe + " LR strain " + strain + " there were no associated samples!");
                             //System.out.println("skipping");

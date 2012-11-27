@@ -89,11 +89,16 @@ public class QTLServiceImpl extends RemoteServiceServlet implements
     // intensities -> matrix rows/columns = probes/samples
     private static Map lungIntensityLookup;
     private static Map liverIntensityLookup;
+    private static Map skinGraftIntensityLookup;
+    private static Map spontaneousIntensityLookup;
     // Strain -> [Sample names...]
     private static Map<String, List<String>> lungStrainLookup;
     private static Map<String, List<String>> liverStrainLookup;
     private static Map<String, List<String>> liverLowFatStrainLookup;
     private static Map<String, List<String>> liverHighFatStrainLookup;
+    private static Map<String, List<String>> skinGraftStrainLookup;
+    private static Map<String, List<String>> spontaneousStrainLookup;
+    private static Map<String, Map<String, String>> strainXRef;
 
     //  This lookup is initialized in the Servlet "init()" method below.
     // cgdsnpdb _loc_func_key -> location/function description
@@ -146,6 +151,21 @@ public class QTLServiceImpl extends RemoteServiceServlet implements
                 (Map<String, List<String>>)context.getAttribute("liverLowFatStrainLookup");
         QTLServiceImpl.liverHighFatStrainLookup =
                 (Map<String, List<String>>)context.getAttribute("liverHighFatStrainLookup");
+        QTLServiceImpl.spontaneousIntensityLookup =
+                (Map)context.getAttribute("spontaneousAlopeciaAreataIntensityLookup");
+        QTLServiceImpl.skinGraftIntensityLookup =
+                (Map)context.getAttribute("skinGraftAlopeciaAreataIntensityLookup");
+        QTLServiceImpl.spontaneousStrainLookup =
+                (Map<String, List<String>>)context.getAttribute("spontaneousAlopeciaAreataStrainLookup");
+        QTLServiceImpl.skinGraftStrainLookup =
+                (Map<String, List<String>>)context.getAttribute("skinGraftAlopeciaAreataStrainLookup");
+        QTLServiceImpl.strainXRef =
+                (Map<String,Map<String,String>>)context.getAttribute("strainXRef");
+        //   TODO: Then add to QTLSeriveImpl
+        //        ADD A CLASS ATTRIBUTE
+        //        PULL VALUE FROM CONTEXT AND ASSIGN TO CLASS ATTR
+        //        IF STATUS IS FALSE WRITE TO LOG
+
         QTLServiceImpl.solrServer =
                 (SolrServer)context.getAttribute("solrServer");
         System.out.println("SANGER INITIALIZATION = " + 
@@ -448,20 +468,28 @@ public class QTLServiceImpl extends RemoteServiceServlet implements
             //  we'll do in this loop.
             ExpressionAnalyzer analyzeGEX = null;
             if (doGEX) {
+                //   TODO: For StrainXRef -  add code to ExpressionAnalyzer to leverage this lookup dependent upon data set being used.
+                Map<String, String> xRef = this.strainXRef.get(snpSet);
                 //  If LUNG Experiment
                 if (gexExp.equals("lung"))
                     analyzeGEX = new ExpressionAnalyzer(probeSetLookup, mgiLookup,
-                        lungIntensityLookup, lungStrainLookup);
+                        lungIntensityLookup, lungStrainLookup, xRef);
                 //  If LIVER Experiment
                 else if (gexExp.equals("liver"))
                     analyzeGEX = new ExpressionAnalyzer(probeSetLookup, mgiLookup,
-                        liverIntensityLookup, liverStrainLookup);
+                        liverIntensityLookup, liverStrainLookup, xRef);
                 else if (gexExp.equals("liverlf"))
                     analyzeGEX = new ExpressionAnalyzer(probeSetLookup, mgiLookup,
-                        liverIntensityLookup, liverLowFatStrainLookup);
+                        liverIntensityLookup, liverLowFatStrainLookup, xRef);
                 else if (gexExp.equals("liverhf"))
                     analyzeGEX = new ExpressionAnalyzer(probeSetLookup, mgiLookup,
-                        liverIntensityLookup, liverHighFatStrainLookup);
+                        liverIntensityLookup, liverHighFatStrainLookup, xRef);
+                else if (gexExp.equals("skingraft"))
+                    analyzeGEX = new ExpressionAnalyzer(probeSetLookup, mgiLookup,
+                        skinGraftIntensityLookup, skinGraftStrainLookup, xRef);
+                else if (gexExp.equals("spontaneous"))
+                    analyzeGEX = new ExpressionAnalyzer(probeSetLookup, mgiLookup,
+                        spontaneousIntensityLookup, spontaneousStrainLookup, xRef);
             }
             for (String chr : generic_results.keySet()) {
                 List<Region> myRegions = generic_results.get(chr);

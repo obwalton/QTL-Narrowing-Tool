@@ -18,18 +18,9 @@
 
 package org.jax.qtln.server;
 
-import java.io.BufferedReader;
-import java.io.File;
-import java.io.FileInputStream;
-import java.io.IOException;
-import java.io.InputStream;
-import java.io.InputStreamReader;
+import java.io.*;
 import java.net.MalformedURLException;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Properties;
+import java.util.*;
 import java.util.regex.Pattern;
 import javax.servlet.ServletContext;
 import javax.servlet.ServletContextEvent;
@@ -90,6 +81,12 @@ public class QTLServletContextListener implements ServletContextListener {
             "/Users/dow/workspace/QTLNarrowing/data/GEX/Liver/liver_lf_design.txt";
     private String LIVER_HF_DESIGN =
             "/Users/dow/workspace/QTLNarrowing/data/GEX/Liver/liver_hf_design.txt";
+    private String SKINGRAFT_ALOPECIA_AREATA_RMA = "/Users/dow/workspace/QTLNarrowing/data/GEX/AlopeciaAreata/SkinGraft_vs_Sham_by_Weeks_rma_expr_norm.txt";
+    private String SKINGRAFT_ALOPECIA_AREATA_DESIGN = "/Users/dow/workspace/QTLNarrowing/data/GEX/AlopeciaAreata/SkinGraft_vs_Sham_by_Weeks_design.txt";
+    private String SPONTANEOUS_ALOPECIA_AREATA_RMA = "/Users/dow/workspace/QTLNarrowing/data/GEX/AlopeciaAreata/Spontaneous_vs_2007_Normal_rma_expr_norm.txt";
+    private String SPONTANEOUS_ALOPECIA_AREATA_DESIGN = "/Users/dow/workspace/QTLNarrowing/data/GEX/AlopeciaAreata/Spontaneous_vs_2007_Normal_design.txt";
+    private String STRAIN_XREF =
+            "/Users/dow/workspace/QTLNarrowing/data/GEX/StrainXRef.txt";
     private String MGI_FTP_ADDR = "ftp.informatics.jax.org";
     private String MGI_REPORTS_DIR = "pub/reports";
     private String MGI_AFFY_430A_2_0_FILE = "Affy_430A_2.0_mgi.rpt";
@@ -118,12 +115,15 @@ public class QTLServletContextListener implements ServletContextListener {
     // intensities -> matrix rows/columns = probes/samples
     private Map lungExpIntensities;
     private Map liverExpIntensities;
+    private Map spontaneousAlopeciaAreataIntensities;
+    private Map skinGraftAlopeciaAreataIntensities;
     // Sample Name -> [Strains...]
     private Map<String, List<String>> lungExpStrains;
     private Map<String, List<String>> liverExpStrains;
     private Map<String, List<String>> liverLowFatExpStrains;
     private Map<String, List<String>> liverHighFatExpStrains;
-
+    private Map<String, List<String>> spontaneousAlopeciaAreataStrains;
+    private Map<String, List<String>> skinGraftAlopeciaAreataStrains;
     
     public void contextInitialized(ServletContextEvent event) {
         ServletContext sc = event.getServletContext();
@@ -270,6 +270,16 @@ public class QTLServletContextListener implements ServletContextListener {
             sc.log(se.getMessage());
             sc.setAttribute("GEX_INIT_STATUS", "FAIL");
         }
+        
+        try {
+            Map<String, Map<String, String>> xref = getStrainXRef(sc);
+            sc.setAttribute("GEX_INIT_STATUS", "SUCCESS");
+            sc.setAttribute("strainXRef", xref);
+        } catch (ServletException se) {
+            sc.log(se.getMessage());
+            sc.setAttribute("GEX_INIT_STATUS", "FAIL");
+        }
+        
         sc.log("EXPRESSION LOOKUPS INITIALIZED");
 
     }
@@ -277,6 +287,58 @@ public class QTLServletContextListener implements ServletContextListener {
     public void contextDestroyed(ServletContextEvent event) {
     }
 
+    private Map<String,Map<String, String>> getStrainXRef(ServletContext sc) 
+            throws ServletException
+    {
+        Map<String,Map<String,String>> xref = new HashMap<String, Map<String,String>>();
+        try {
+            FileReader fileReader = new FileReader(this.STRAIN_XREF);
+            BufferedReader bufferedReader = new BufferedReader(fileReader);
+
+            // loop through lines of the file.  Separating each line
+            // into a row of the dataset object.
+            String line = "";
+            boolean firstLine = true;
+            String[] header = new String[0];
+            String[] cols;
+            while ((line = bufferedReader.readLine()) != null) {
+                cols = line.split("\t");
+
+                // For the first line we need to gather all the strain names
+                if (firstLine) {
+                    header = cols;
+                    firstLine = false;
+                    //  Get all snp set names...
+                    for (int i = 0; i < header.length; i++) {
+                        //this.strainBaseCalls.put(cols[i], new WAHBitSet());
+                        xref.put(header[i].trim(), new HashMap<String, String>());
+                    }
+                    continue;
+                } //  Create a HashMap lookup for each column other than 1st
+                else {
+                    //  Get the master strain name from expression sets
+                    String master = cols[0];
+                    // for each line add an entry in appropriate Map for rows where 
+                    // "other" col has an entry
+                    for (int i = 1; i < cols.length; i++) {
+                        if (!("".equals(cols[i].trim()))) {
+                            Map<String, String> map = xref.get(header[i]);
+                            // Add each of the maps to the xref by column name
+                            map.put(cols[i].trim(), master);
+                            xref.put(header[i], map);   // not really necessary
+                        }
+                    }
+                }
+            }
+            // Close the file readers, we're all done with them.
+            bufferedReader.close();
+            fileReader.close();
+        } catch (IOException ioe) {
+            throw new UnavailableException("Problem getting Strain Cross Reference: "
+                    + ioe.getMessage());
+        }
+        return xref;
+    }
     
     private SangerSNPFile initSangerSNP(ServletContext sc) {
         SangerSNPFile sangerSNPs = new SangerSNPFile(this.sangerSnpFile);
@@ -445,6 +507,10 @@ public class QTLServletContextListener implements ServletContextListener {
             sc.setAttribute("lungIntensityLookup", this.lungExpIntensities);
             this.liverExpIntensities = ea.parseRMA(this.LIVER_RMA, sc);
             sc.setAttribute("liverIntensityLookup", this.liverExpIntensities);
+            this.spontaneousAlopeciaAreataIntensities = ea.parseRMA(this.SPONTANEOUS_ALOPECIA_AREATA_RMA, sc);
+            sc.setAttribute("spontaneousAlopeciaAreataIntensityLookup", this.spontaneousAlopeciaAreataIntensities);
+            this.skinGraftAlopeciaAreataIntensities = ea.parseRMA(this.SKINGRAFT_ALOPECIA_AREATA_RMA, sc);
+            sc.setAttribute("skinGraftAlopeciaAreataIntensityLookup", this.skinGraftAlopeciaAreataIntensities);
             sc.log("INIT: Reading Design File");
             this.lungExpStrains = ea.parseDesign(this.LUNG_DESIGN, sc);
             sc.setAttribute("lungStrainLookup", this.lungExpStrains);
@@ -454,6 +520,10 @@ public class QTLServletContextListener implements ServletContextListener {
             sc.setAttribute("liverLowFatStrainLookup", this.liverLowFatExpStrains);
             this.liverHighFatExpStrains = ea.parseDesign(this.LIVER_HF_DESIGN, sc);
             sc.setAttribute("liverHighFatStrainLookup", this.liverHighFatExpStrains);
+            this.spontaneousAlopeciaAreataStrains = ea.parseDesign(this.SPONTANEOUS_ALOPECIA_AREATA_DESIGN, sc);
+            sc.setAttribute("spontaneousAlopeciaAreataStrainLookup", this.spontaneousAlopeciaAreataStrains);
+            this.skinGraftAlopeciaAreataStrains = ea.parseDesign(this.SKINGRAFT_ALOPECIA_AREATA_DESIGN, sc);
+            sc.setAttribute("skinGraftAlopeciaAreataStrainLookup", this.skinGraftAlopeciaAreataStrains);
 
         } catch (Throwable e) {
             sc.log("INIT:  FAILURE DUE TO ISSUE: ");
@@ -539,6 +609,26 @@ public class QTLServletContextListener implements ServletContextListener {
             if (p.containsKey("liver_hf_design")) {
                 this.LIVER_HF_DESIGN = data_dir + File.separator
                         + p.getProperty("liver_hf_design");
+            }
+            if (p.containsKey("spontaneous_alopecia_areata_rma")) {
+                this.SPONTANEOUS_ALOPECIA_AREATA_RMA = data_dir + File.separator
+                        + p.getProperty("spontaneous_alopecia_areata_rma");
+            }
+            if (p.containsKey("spontaneous_alopecia_areata_design")) {
+                this.SPONTANEOUS_ALOPECIA_AREATA_DESIGN = data_dir + File.separator
+                        + p.getProperty("spontaneous_alopecia_areata_design");
+            }
+            if (p.containsKey("skingraft_alopecia_areata_rma")) {
+                this.SKINGRAFT_ALOPECIA_AREATA_RMA = data_dir + File.separator
+                        + p.getProperty("skingraft_alopecia_areata_rma");
+            }
+            if (p.containsKey("skingraft_alopecia_areata_design")) {
+                this.SKINGRAFT_ALOPECIA_AREATA_DESIGN = data_dir + File.separator
+                        + p.getProperty("skingraft_alopecia_areata_design");
+            }
+            if (p.containsKey("strain_xref")) {
+                this.STRAIN_XREF = data_dir + File.separator
+                        + p.getProperty("strain_xref");
             }
         }
 
