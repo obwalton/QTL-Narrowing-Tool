@@ -34,21 +34,25 @@ public class QTLPhenotypeLoader {
     private String markers_file = "MGI_Coordinate.rpt";
     private String qtl2mp_file = "MGI_PhenoGenoMP.rpt";
     private String mp_file = "VOC_MammalianPhenotype.rpt";
+    private String ref_file = "MRK_Reference.rpt";
     private SolrServer server = null;
-
+    private ServletContext sc = null;
+    
     public QTLPhenotypeLoader(SolrServer server, String url, String rep_dir,
-            String markers_file, String qtl2mp_file, String mp_file) {
+            String markers_file, String qtl2mp_file, String mp_file, String ref_file) {
         this.server = server;
         this.mgi_ftp_url = url;
         this.reports_dir = rep_dir;
         this.markers_file = markers_file;
         this.qtl2mp_file = qtl2mp_file;
         this.mp_file = mp_file;
+        this.ref_file = ref_file;
     }
 
     public SolrServer getLoadedServer(ServletContext sc)
             throws UnavailableException
     {
+        this.sc = sc;
         FTPClient ftp = new FTPClient();
         try {
             int reply;
@@ -143,6 +147,40 @@ public class QTLPhenotypeLoader {
 
             ftp.logout();
 
+            reply = 0;
+            ftp.connect(this.mgi_ftp_url);
+
+            // After connection attempt, you should check the reply code to verify
+            // success.
+            reply = ftp.getReplyCode();
+
+            if (!FTPReply.isPositiveCompletion(reply)) {
+                ftp.disconnect();
+                throw new UnavailableException("Problem connecting to MGI server! ");
+            }
+            //  TODO: replace this with a "QTL Narrowing" specific mail addr
+            ftp.login("anonymous", "cbr-help@jax.org");
+            ftp.cwd(this.reports_dir);
+            sc.log(ftp.printWorkingDirectory());
+
+
+            InputStream refInStream = ftp.retrieveFileStream(this.ref_file);
+            if (refInStream == null) {
+                sc.log("ref file input stream is null! what gives?");
+                System.out.println("TESTING ...1...2...3");
+                throw new UnavailableException("ref file inputstream is null!");
+            }
+            bufferedReader =
+                    new BufferedReader(new InputStreamReader(refInStream));
+
+            qtls = getRefs(bufferedReader, qtls);
+            sc.log("After getRefs - " + qtls.size() + " QTLs");
+            bufferedReader.close();
+            refInStream.close();
+            ftp.logout();
+
+
+            
             loadServer(qtls, sc);
 
         } catch (SolrServerException sse) {
@@ -190,6 +228,7 @@ public class QTLPhenotypeLoader {
             String[] cols = line.split("\t");
             if (cols[1].equals("QTL")) {
                 ArrayList qtl = new ArrayList();
+                // THis was the order of the old MGI_Coordinate report
                 // 1=mgiid, 2=mgitype, 3=symbol, 4=name, 29=chr, 30=start,31=end
                 qtl.add(cols[0].trim());
                 qtl.add(cols[28].trim());
@@ -197,10 +236,21 @@ public class QTLPhenotypeLoader {
                 qtl.add(cols[30].trim());
                 qtl.add(cols[2].trim());
                 qtl.add(cols[3].trim());
+                // MGI Discontinued this report and replaced it with the
+                // MGI_MRK_Coord.rpt.  Following are the columns:
+                // 1= mgiid, 2=mgitype, 4=symbol, 5=name, 6=chr, 7=start, 8=end
+                //qtl.add(cols[0].trim());
+                //qtl.add(cols[5].trim());
+                //qtl.add(cols[6].trim());
+                //qtl.add(cols[7].trim());
+                //qtl.add(cols[3].trim());
+                //qtl.add(cols[4].trim());
                 ArrayList mp_terms = new ArrayList();
+                ArrayList ref_ids = new ArrayList();
                 HashMap qtl_dict = new HashMap();
                 qtl_dict.put("qtl", qtl);
                 qtl_dict.put("mp", mp_terms);
+                qtl_dict.put("ref", ref_ids);
                 qtls.put(cols[0], qtl_dict);
 
             }
@@ -267,14 +317,22 @@ public class QTLPhenotypeLoader {
         String line = "";
         while ((line = bufferedReader.readLine()) != null) {
             String[] cols = line.split("\t");
+            if (cols.length < 6) {
+                continue;
+            }
             String qtlid = cols[5];
 
-            if (qtls.containsKey(qtlid)) {
-                HashMap qtl_dict = (HashMap) qtls.get(qtlid);
-                String mpid = cols[3];
-                if (mpids.containsKey(mpid)) {
-                    ArrayList mp_terms = (ArrayList) qtl_dict.get("mp");
-                    mp_terms.add((String) mpids.get(mpid));
+            String[] q_list = qtlid.split(",");
+            for (String q : q_list) {
+                if (qtls.containsKey(q)) {
+                    HashMap qtl_dict = (HashMap) qtls.get(q);
+                    if (qtl_dict != null) {
+                        String mpid = cols[3];
+                        if (mpids.containsKey(mpid)) {
+                            ArrayList mp_terms = (ArrayList) qtl_dict.get("mp");
+                            mp_terms.add((String) mpids.get(mpid));
+                        }
+                    }
                 }
             }
 
@@ -282,6 +340,33 @@ public class QTLPhenotypeLoader {
         // Close the file readers, we're all done with them.
         //bufferedReader.close();
         //fileReader.close();
+
+        return qtls;
+    }
+
+    private HashMap getRefs(BufferedReader bufferedReader, HashMap qtls)
+            throws IOException {
+
+        // loop through lines of the file.  Separating each line
+        // into a QTL.
+        String line = "";
+        while ((line = bufferedReader.readLine()) != null) {
+            String[] cols = line.split("\t");
+            if (cols.length < 5)
+                continue;
+            String qtlid = cols[0];
+
+            if (qtls.containsKey(qtlid)) {
+                HashMap qtl_dict = (HashMap) qtls.get(qtlid);
+                String[] refs = cols[4].split("|");
+                ArrayList ref_ids = (ArrayList) qtl_dict.get("ref");
+                for (String ref : refs) {
+                    ref_ids.add(ref); 
+                }
+                qtl_dict.put("ref",ref_ids);
+            }
+
+        }
 
         return qtls;
     }
@@ -302,6 +387,7 @@ public class QTLPhenotypeLoader {
             HashMap qtl_dict = (HashMap) qtls.get(qtl);
             ArrayList qtl_detail = (ArrayList) qtl_dict.get("qtl");
             ArrayList mp_terms = (ArrayList) qtl_dict.get("mp");
+            ArrayList ref_ids = (ArrayList) qtl_dict.get("ref");
             MGIQTL mgiqtl = new MGIQTL();
             mgiqtl.setId((String) qtl_detail.get(0));
             mgiqtl.setChromosome((String) qtl_detail.get(1));
@@ -321,10 +407,18 @@ public class QTLPhenotypeLoader {
                 terms[j] = term;
             }
             mgiqtl.mpterms = terms;
+            
+            String[] refids = new String[ref_ids.size()];
+            for (int j = 0; j < ref_ids.size(); j++) {
+                String ref = (String) ref_ids.get(j);
+                refids[j] = ref;
+            }
+            mgiqtl.refids = refids;
             beans.add(mgiqtl);
         }
         sc.log("Adding " + beans.size() + " QTLs to SOLr server!");
         this.server.addBeans(beans);
+        sc.log("Beans added");
         this.server.commit();
         sc.log("server commited");
 

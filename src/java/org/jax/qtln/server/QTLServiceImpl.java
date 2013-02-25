@@ -52,6 +52,8 @@ import org.jax.qtln.regions.ReturnRegion;
 import org.jax.qtln.regions.SNP;
 import org.jax.qtln.snpsets.SangerSNPFile;
 import org.jax.qtln.snpsets.UNCSNPFile;
+import org.jax.qtln.snpsets.UNCSangerCombinedSNPFile;
+
 
 /**
  * The server side implementation of the RPC service.
@@ -107,6 +109,7 @@ public class QTLServiceImpl extends RemoteServiceServlet implements
     
     private static SangerSNPFile sangerSNPFile;
     private static UNCSNPFile uncSNPFile;
+    private static UNCSangerCombinedSNPFile uncSangerSNPFile;
 
     /** init
      * Runs inititalizations that must occur before methods of servlet are run.
@@ -176,7 +179,11 @@ public class QTLServiceImpl extends RemoteServiceServlet implements
                 (String) context.getAttribute("UNC_INIT_STATUS"));
         QTLServiceImpl.uncSNPFile =
                 (UNCSNPFile)context.getAttribute("uncSNPs");
-       
+        System.out.println("UNC SANGER COMBINED INITIALIZATION = " + 
+                (String) context.getAttribute("UNCSANGER_INIT_STATUS"));
+        QTLServiceImpl.uncSangerSNPFile =
+                (UNCSangerCombinedSNPFile)context.getAttribute("uncSangerSNPs");
+      
         
         //  If any of these were not provided with user properties, we'll
         //  use the default values instead
@@ -253,6 +260,7 @@ public class QTLServiceImpl extends RemoteServiceServlet implements
         System.out.println ("IN getStrains");
         String[] sanger_strains = new String[0];
         String[] unc_strains = new String[0];
+        String[] unc_sanger_strains = new String[0];
         String[] cgd_imputed_strains = new String[0];
         boolean found_strains = false;
         if (QTLServiceImpl.cgdSNPLookup != null) {
@@ -295,6 +303,18 @@ public class QTLServiceImpl extends RemoteServiceServlet implements
             found_strains = true;
         }
         
+        System.out.println("Now get UNC Sanger Combined Strains...");
+        
+        if (QTLServiceImpl.uncSangerSNPFile != null) {
+            List<String> strain_list = QTLServiceImpl.uncSangerSNPFile.getStrains();
+            System.out.println("There are " + strain_list.size() + " UNC Sanger Combined strains.");
+            for (String strain: strain_list) {
+                System.out.println(strain);
+            }
+            unc_sanger_strains = strain_list.toArray(new String[0]);
+            found_strains = true;
+        }
+        
         if (found_strains) {
             if (sanger_strains.length > 0) {
                 strains.put("sanger", sanger_strains);
@@ -305,6 +325,11 @@ public class QTLServiceImpl extends RemoteServiceServlet implements
                 strains.put("unc", unc_strains);
                 System.out.println("Returning " + unc_strains.length + 
                         " unc strains");
+            }
+            if (unc_sanger_strains.length > 0) {
+                strains.put("unc_sanger", unc_sanger_strains);
+                System.out.println("Returning " + unc_sanger_strains.length + 
+                        " unc sanger strains");
             }
             if (cgd_imputed_strains.length > 0) {
                 strains.put("cgd_imputed", cgd_imputed_strains);
@@ -405,6 +430,9 @@ public class QTLServiceImpl extends RemoteServiceServlet implements
             } else if (snpSet.equals("unc")) {
                 
                 haplotypeAnalyzer = new HaplotypeAnalyzer(this.uncSNPFile);
+            } else if (snpSet.equals("unc_sanger")) {
+                
+                haplotypeAnalyzer = new HaplotypeAnalyzer(this.uncSangerSNPFile);
             }
             try {
                 // TESTING threading for peformance improvement using the
@@ -752,6 +780,20 @@ public class QTLServiceImpl extends RemoteServiceServlet implements
                         }
                     }
                     qtl.put("terms",term_out);
+                    
+                    String[] refs = resultDoc.getRefids();
+                    String ref_out = "";
+                    if (refs != null && refs.length > 0) {
+                        boolean first = true;
+                        for (String ref : refs) {
+                            //System.out.println(ref);
+                            if ("|".equals(ref))
+                                ref_out = ref_out + "\n";
+                            else 
+                                ref_out += ref;
+                        }
+                    }
+                    qtl.put("refs",ref_out);
                     results.add(qtl);
                 }
                 System.out.println("Returned first " + beans.size() + " limited to 100");

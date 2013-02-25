@@ -38,6 +38,7 @@ import org.jax.qtln.mgisearch.QTLPhenotypeLoader;
 import org.xml.sax.SAXException;
 import org.jax.qtln.snpsets.SangerSNPFile;
 import org.jax.qtln.snpsets.UNCSNPFile;
+import org.jax.qtln.snpsets.UNCSangerCombinedSNPFile;
 
 /**
  *
@@ -60,6 +61,7 @@ public class QTLServletContextListener implements ServletContextListener {
     
     private String sangerSnpFile = "/Users/dow/workspace/cgd/RV/test_data/20110602-final-snps.vcf.gz";
     private String uncSnpFile = "/Users/dow/workspace/cgd/RV/test_data/UNC_88_Combined.txt.gz";
+    private String uncSangerSnpFile = "/Users/dow/workspace/cgd/RV/test_data/new.Sanger.UNC.Combined.SNPs.txt.gz";
     //  TODO: come up with a clever way of dealing with file name with changing
     //  version and build
     private String imputedSnpsBaseName =
@@ -98,6 +100,7 @@ public class QTLServletContextListener implements ServletContextListener {
     private String MGI_MARKERS_FILE = "MGI_Coordinate.rpt";
     private String MGI_QTL2MP_FILE = "MGI_PhenoGenoMP.rpt";
     private String MGI_MP_FILE = "VOC_MammalianPhenotype.rpt";
+    private String MGI_REF_FILE = "MRK_Reference.rpt";
     private static final int MGI_PROBE_FILE_HEADER_SIZE = 5;
 
     // Chromosome -> SNP detail
@@ -179,7 +182,7 @@ public class QTLServletContextListener implements ServletContextListener {
             QTLPhenotypeLoader loadMGIServer = new QTLPhenotypeLoader(server, 
                     this.MGI_FTP_ADDR, this.MGI_REPORTS_DIR,
                     this.MGI_MARKERS_FILE, this.MGI_QTL2MP_FILE,
-                    this.MGI_MP_FILE);
+                    this.MGI_MP_FILE, this.MGI_REF_FILE);
             server = loadMGIServer.getLoadedServer(sc);
             sc.log("setting solrServer attribute");
             sc.setAttribute("solrServer", server);
@@ -231,6 +234,17 @@ public class QTLServletContextListener implements ServletContextListener {
             sc.setAttribute("UNC_INIT_STATUS","FAIL");
         }
 
+        //  Set up the Sanger SNP File for searching Sanger SNPs
+        try {
+            UNCSangerCombinedSNPFile ussnpf = initUNCSangerSNP(sc);
+            sc.setAttribute("uncSangerSNPs", ussnpf);
+            sc.setAttribute("UNCSANGER_INIT_STATUS","SUCCESS");
+        } catch (Exception e) {
+            sc.log("Failure setting up UNC Sanger Combined SNPs...");
+            sc.log(e.getMessage());
+            sc.setAttribute("UNCSANGER_INIT_STATUS","FAIL");
+        }
+        
         //  Set up the SNP Database
 
         //boolean success = true;
@@ -350,6 +364,12 @@ public class QTLServletContextListener implements ServletContextListener {
         UNCSNPFile uncSNPs = new UNCSNPFile(this.uncSnpFile);
         sc.log("***** CONSTRUCTED UNCSNPFile. Has " + uncSNPs.getStrains().size() + " Strains associated with it!");
         return uncSNPs;
+    }
+
+    private UNCSangerCombinedSNPFile initUNCSangerSNP(ServletContext sc) {
+        UNCSangerCombinedSNPFile uncSangerSNPs = new UNCSangerCombinedSNPFile(this.uncSangerSnpFile);
+        sc.log("***** CONSTRUCTED UNCSangerSNPFile. Has " + uncSangerSNPs.getStrains().size() + " Strains associated with it!");
+        return uncSangerSNPs;
     }
 
     private HashMap<String, SNPFile> initSnpDB(ServletContext sc)
@@ -580,6 +600,11 @@ public class QTLServletContextListener implements ServletContextListener {
                     p.getProperty("unc_snp_file_name");
         }
         
+        if (p.containsKey("unc_sanger_snp_file_name")){
+            this.uncSangerSnpFile =
+                    p.getProperty("unc_sanger_snp_file_name");
+        }
+        
         if (p.containsKey("data_directory")) {
             String data_dir = p.getProperty("data_directory");
             if (p.containsKey("snp_data_dir")) {
@@ -651,6 +676,8 @@ public class QTLServletContextListener implements ServletContextListener {
             this.MGI_QTL2MP_FILE = p.getProperty("mgi_qtl2mp");
         if (p.containsKey("mgi_mpterms"))
             this.MGI_MP_FILE = p.getProperty("mgi_mpterms");
+        if (p.containsKey("mgi_ref"))
+            this.MGI_REF_FILE = p.getProperty("mgi_ref");
     }
 
 

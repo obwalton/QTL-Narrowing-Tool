@@ -36,6 +36,9 @@ public class MGIQTL {
     @Field("terms")
     String[] mpterms;
 
+    @Field("refs")
+    String[] refids;
+
     public Integer getBp_start() {
         return bp_start;
     }
@@ -90,6 +93,14 @@ public class MGIQTL {
 
     public void setMpterms(String[] mpterms) {
         this.mpterms = mpterms;
+    }
+
+    public String[] getRefids() {
+        return refids;
+    }
+
+    public void setRefids(String[] refids) {
+        this.refids = refids;
     }
 
     public String getName() {

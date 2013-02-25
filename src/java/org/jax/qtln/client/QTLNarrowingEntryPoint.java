@@ -1093,14 +1093,19 @@ public class QTLNarrowingEntryPoint implements EntryPoint {
                 for (int i = 1; i < strainPanel.getWidgetCount(); i++) {
                     ListBox b = (ListBox)strainPanel.getWidget(i);
                     int idx = b.getSelectedIndex();
-                    GWT.log("Checking widget number " + i + " name " + b.getName() + " value " + b.getValue(idx));
-                    //if (b.getValue(idx) ) {
+                    GWT.log("Checking value " + val + " in widget number " + i + " itemText " + b.getItemText(idx) + " value " + b.getValue(idx) + " within set " + idx);
+                    if (b.getValue(idx) != null ) {
                         l_strains = strainMap.get(b.getValue(idx));
-                    //}
+                    }
                 }
                 if (Arrays.binarySearch(l_strains, val) > -1) {
+                    GWT.log("Val " + val + " in " + l_strains);
                     html = val;
                 } else {
+                    GWT.log("Val " + val + " not in: ");
+                    if (! val.equals("Unknown"))
+                        for (String strain : l_strains)
+                            GWT.log(strain);
                     html = "<span style='color:red'>" + val + "</span>";
                 }
 
@@ -1496,7 +1501,7 @@ public class QTLNarrowingEntryPoint implements EntryPoint {
             }
         };
 
-        editor1.addListener(Events.BeforeComplete, new Listener<EditorEvent>() {
+        /*editor1.addListener(Events.BeforeComplete, new Listener<EditorEvent>() {
             public void handleEvent(EditorEvent be) {
                 MessageBox mb =
                         MessageBox.alert("Testing", be.getValue().toString(),
@@ -1509,7 +1514,7 @@ public class QTLNarrowingEntryPoint implements EntryPoint {
                 mb.show();
                 be.stopEvent();
             }
-        });
+        });*/
         hrcolumn.setEditor(editor1);
         hrcolumn.setRenderer(strainRenderer);
 
@@ -1567,7 +1572,7 @@ public class QTLNarrowingEntryPoint implements EntryPoint {
             }
         };
 
-        editor2.addListener(Events.BeforeComplete, new Listener<EditorEvent>() {
+        /*editor2.addListener(Events.BeforeComplete, new Listener<EditorEvent>() {
             public void handleEvent(EditorEvent be) {
                 MessageBox mb =
                         MessageBox.alert("Testing", be.getValue().toString(),
@@ -1580,7 +1585,7 @@ public class QTLNarrowingEntryPoint implements EntryPoint {
                 mb.show();
                 be.stopEvent();
             }
-        });
+        });*/
         lrcolumn.setEditor(editor1);
         
         //  Needed to refresh text of lr and hr columns to trigger render
@@ -2366,6 +2371,39 @@ public class QTLNarrowingEntryPoint implements EntryPoint {
                     }
                 };
 
+        GridCellRenderer<PhenoSearchResult> formatRef =
+                new GridCellRenderer<PhenoSearchResult>() {
+
+                    public String render(PhenoSearchResult model, String property,
+                            ColumnData config, int rowIndex, int colIndex,
+                            ListStore<PhenoSearchResult> qtlList,
+                            Grid<PhenoSearchResult> grid) {
+                        String val = "";
+                        if (property.equals("refs")) {
+                            val = model.getRefs();
+                            String[] vals = val.split("\n");
+                            boolean first = true;
+                            String pmed = "http://www.ncbi.nlm.nih.gov/pubmed/";
+                            val = "";
+                            for (String ref : vals) {
+                                if (first) {
+                                    first = false;
+                                } else {
+                                    val = val + ", ";
+                                }
+                                String html = "<a href='" + pmed;
+                                html += ref + "' target='_NEW'>" + ref + "</a>";
+                                val += html;
+                            }
+                        } else {
+                            
+                            val = (String) model.get(property);
+                        }
+
+                        return val;
+                    }
+                };
+
         //  first Column is the QTL ID
         ColumnConfig column = new ColumnConfig();
         column.setId("qtlid");
@@ -2409,6 +2447,13 @@ public class QTLNarrowingEntryPoint implements EntryPoint {
         column.setId("terms");
         column.setHeader("Associated MP Terms");
         column.setWidth(200);
+        configs.add(column);
+
+        column = new ColumnConfig();
+        column.setId("refs");
+        column.setHeader("Reference(s)");
+        column.setWidth(150);
+        column.setRenderer(formatRef);
         configs.add(column);
 
         // Now Populate the rows of our store
@@ -2889,6 +2934,7 @@ class PhenoSearchResult extends BaseModel {
         set("symbol", qtl.get("symbol"));
         set("name", qtl.get("name"));
         set("terms", qtl.get("terms"));
+        set("refs", qtl.get("refs"));
     }
 
     public String getQtlid() {
@@ -2921,5 +2967,9 @@ class PhenoSearchResult extends BaseModel {
 
     public String getTerms() {
         return (String) get("terms");
+    }
+    
+    public String getRefs() {
+        return (String) get("refs");
     }
 }

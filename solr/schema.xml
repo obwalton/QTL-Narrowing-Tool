@@ -437,6 +437,7 @@
    <field name="shortdesc" type="textgen" indexed="true" stored="true"/>
    <field name="longdesc" type="textgen" indexed="true" stored="true"/>
    <field name="terms" type="text_ws" indexed="true" stored="true" multiValued="true" />
+   <field name="refs" type="text_ws" indexed="true" stored="true" multiValued="true" />
    <!-- End of the variables I created for QTL Searching -->
 
    <field name="sku" type="textTight" indexed="true" stored="true" omitNorms="true"/>

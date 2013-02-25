@@ -232,7 +232,8 @@ public class TabixReader
 			if (col == mSc) {
 				intv.tid = chr2tid(s.substring(beg, end));
 			} else if (col == mBc) {
-				intv.beg = intv.end = Integer.parseInt(s.substring(beg, end));
+                                // DOW:  Added a trim here because I was getting " 88703052"
+				intv.beg = intv.end = Integer.parseInt(s.substring(beg, end).trim());
 				if ((mPreset&0x10000) != 0) ++intv.end;
 				else --intv.beg;
 				if (intv.beg < 0) intv.beg = 0;
