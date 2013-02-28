@@ -117,7 +117,7 @@ public class UNCSNPFile extends TabixSearcher {
                         strain + " is not a valid strain!";
                 throw new SNPDoesNotMeetCriteriaException(msg);
             }
-            strain_idx = strain_idx + UNCSNPFile.STRAIN_START_COLUMN;
+            strain_idx = (strain_idx * 2) + UNCSNPFile.STRAIN_START_COLUMN;
             String value = tokens[strain_idx];
             String confidence = tokens[strain_idx + 1];
             
@@ -158,7 +158,7 @@ public class UNCSNPFile extends TabixSearcher {
                         strain + " is not a valid strain!";
                 throw new SNPDoesNotMeetCriteriaException(msg);
             }
-            strain_idx = strain_idx + UNCSNPFile.STRAIN_START_COLUMN;
+            strain_idx = (strain_idx * 2) + UNCSNPFile.STRAIN_START_COLUMN;
             String value = tokens[strain_idx];
             String confidence = tokens[strain_idx + 1];
             

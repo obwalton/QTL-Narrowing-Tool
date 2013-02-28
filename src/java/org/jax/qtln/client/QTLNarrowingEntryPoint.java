@@ -1093,19 +1093,19 @@ public class QTLNarrowingEntryPoint implements EntryPoint {
                 for (int i = 1; i < strainPanel.getWidgetCount(); i++) {
                     ListBox b = (ListBox)strainPanel.getWidget(i);
                     int idx = b.getSelectedIndex();
-                    GWT.log("Checking value " + val + " in widget number " + i + " itemText " + b.getItemText(idx) + " value " + b.getValue(idx) + " within set " + idx);
+                    //GWT.log("Checking value " + val + " in widget number " + i + " itemText " + b.getItemText(idx) + " value " + b.getValue(idx) + " within set " + idx);
                     if (b.getValue(idx) != null ) {
                         l_strains = strainMap.get(b.getValue(idx));
                     }
                 }
-                if (Arrays.binarySearch(l_strains, val) > -1) {
-                    GWT.log("Val " + val + " in " + l_strains);
+                if (l_strains != null && Arrays.binarySearch(l_strains, val) > -1) {
+                    //GWT.log("Val " + val + " in " + l_strains);
                     html = val;
                 } else {
-                    GWT.log("Val " + val + " not in: ");
-                    if (! val.equals("Unknown"))
-                        for (String strain : l_strains)
-                            GWT.log(strain);
+                    //GWT.log("Val " + val + " not in: ");
+                    //if (! val.equals("Unknown"))
+                      //  for (String strain : l_strains)
+                        //    GWT.log(strain);
                     html = "<span style='color:red'>" + val + "</span>";
                 }
 
@@ -1166,6 +1166,8 @@ public class QTLNarrowingEntryPoint implements EntryPoint {
                 if (value == null) {
                     return value;
                 }
+                GWT.log("COMBO1");
+
                 GWT.log("IN PREPROCESS = " + value.toString());
                 oldValue = value.toString();
                 return combo1.findModel(value.toString());
@@ -1173,6 +1175,7 @@ public class QTLNarrowingEntryPoint implements EntryPoint {
 
             @Override
             public Object postProcessValue(Object value) {
+                GWT.log("COMBO1");
                 if (value == null) {
                     return value;
                 }
@@ -1223,6 +1226,8 @@ public class QTLNarrowingEntryPoint implements EntryPoint {
                 if (value == null) {
                     return value;
                 }
+                GWT.log("COMBO2");
+
                 GWT.log("IN PREPROCESS = " + value.toString());
                 oldValue = value.toString();
                 return combo2.findModel(value.toString());
@@ -1230,6 +1235,8 @@ public class QTLNarrowingEntryPoint implements EntryPoint {
 
             @Override
             public Object postProcessValue(Object value) {
+                GWT.log("COMBO2");
+
                 if (value == null) {
                     return value;
                 }
@@ -1467,6 +1474,8 @@ public class QTLNarrowingEntryPoint implements EntryPoint {
                 if (value == null) {
                     return value;
                 }
+                GWT.log("EDITOR 1");
+
                 GWT.log("IN PREPROCESS = " + value.toString());
                 oldValue = value.toString();
                 return combo1.findModel(value.toString());
@@ -1474,6 +1483,7 @@ public class QTLNarrowingEntryPoint implements EntryPoint {
 
             @Override
             public Object postProcessValue(Object value) {
+                GWT.log("EDITOR 1");
                 if (value == null) {
                     return value;
                 }
@@ -1538,13 +1548,15 @@ public class QTLNarrowingEntryPoint implements EntryPoint {
                 if (value == null) {
                     return value;
                 }
+                GWT.log("EDITOR 2");
                 GWT.log("IN PREPROCESS = " + value.toString());
                 oldValue = value.toString();
-                return combo1.findModel(value.toString());
+                return combo2.findModel(value.toString());
             }
 
             @Override
             public Object postProcessValue(Object value) {
+                GWT.log("EDITOR 2");
                 if (value == null) {
                     return value;
                 }
@@ -1559,7 +1571,7 @@ public class QTLNarrowingEntryPoint implements EntryPoint {
                             if (mbe.getButtonClicked().getItemId().equals(Dialog.YES)) {
                                 GWT.log("Yes Button Pressed!");
                                 replace = true;
-                                QTLNarrowingEntryPoint.this.alterHRStrainValues(
+                                QTLNarrowingEntryPoint.this.alterLRStrainValues(
                                         row, oldValue, newValue);
                             }
                         }
@@ -1586,7 +1598,7 @@ public class QTLNarrowingEntryPoint implements EntryPoint {
                 be.stopEvent();
             }
         });*/
-        lrcolumn.setEditor(editor1);
+        lrcolumn.setEditor(editor2);
         
         //  Needed to refresh text of lr and hr columns to trigger render
         //  which checks if strain names are valid.
@@ -2047,6 +2059,7 @@ public class QTLNarrowingEntryPoint implements EntryPoint {
         configs.add(column);
 
         if (showGEXResults) {
+            //  High Responding Mean Intensity
             column = new ColumnConfig();
             column.setId("hrmean");
             column.setHeader("HR Mean Intensity");
@@ -2061,7 +2074,6 @@ public class QTLNarrowingEntryPoint implements EntryPoint {
             column.setRenderer(formatMean);
             configs.add(column);
 
-            //  Third Column is the High Responding Mean Intensity
             column = new ColumnConfig();
             column.setId("pvalue");
             column.setHeader("P-Value");

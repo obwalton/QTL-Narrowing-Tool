@@ -104,13 +104,13 @@ public class UNCSangerCombinedSNPFile extends TabixSearcher {
             throws SNPDoesNotMeetCriteriaException
     {
         String[] tokens = s.split("\t");
-        String pos = tokens[2];
+        String pos = tokens[2].trim();
         //  init the ref and alt to blank
         char ref = ' ';
         char alt = ' ';
         String hr_call = "";
         boolean first = true;
-        SNP snp = new SNP(Integer.parseInt(tokens[1]));
+        SNP snp = new SNP(Integer.parseInt(pos));
         for (String strain : hrstrains) {
             //  invalid strain throw exception
             int strain_idx = this.strains.indexOf(strain);
@@ -119,10 +119,13 @@ public class UNCSangerCombinedSNPFile extends TabixSearcher {
                         strain + " is not a valid strain!";
                 throw new SNPDoesNotMeetCriteriaException(msg);
             }
-            strain_idx = strain_idx + UNCSangerCombinedSNPFile.STRAIN_START_COLUMN;
+            //  Index needs to be times 2 because every other is a confidence score
+            strain_idx = (strain_idx*2) + UNCSangerCombinedSNPFile.STRAIN_START_COLUMN;
             String value = tokens[strain_idx];
             String confidence = tokens[strain_idx + 1];
-            
+            if (value.equals("0") || value.equals("1") || value.equals("2")) {
+                System.out.println("BUG!!! " + tokens[0] + ", " + tokens[1] + ", " + tokens[2] + ", " + tokens[3] + ", " + tokens[4]);
+            }
             if (first) {
                 if ((confidence.equals("1") || confidence.equals("2")) && 
                      !value.equals("N") && !value.equals("H")) {
@@ -131,7 +134,7 @@ public class UNCSangerCombinedSNPFile extends TabixSearcher {
                 else {
                     String msg = "High responding strain " + strain + 
                             " has either an ambigous base call: " + value + 
-                            " or a low confidence score: " + confidence;
+                            " or a low confidence score: '" + confidence + "'";
                     throw new SNPDoesNotMeetCriteriaException(msg);
                 }
                 first = false;
@@ -160,7 +163,7 @@ public class UNCSangerCombinedSNPFile extends TabixSearcher {
                         strain + " is not a valid strain!";
                 throw new SNPDoesNotMeetCriteriaException(msg);
             }
-            strain_idx = strain_idx + UNCSangerCombinedSNPFile.STRAIN_START_COLUMN;
+            strain_idx = (strain_idx *2) + UNCSangerCombinedSNPFile.STRAIN_START_COLUMN;
             String value = tokens[strain_idx];
             String confidence = tokens[strain_idx + 1];
             
@@ -172,7 +175,7 @@ public class UNCSangerCombinedSNPFile extends TabixSearcher {
                 else {
                     String msg = "Low responding strain " + strain + 
                             " has either an ambigous base call: " + value + 
-                            " or a low confidence score: " + confidence;
+                            " or a low confidence score: '" + confidence + "'";
                     throw new SNPDoesNotMeetCriteriaException(msg);
                 }
 
