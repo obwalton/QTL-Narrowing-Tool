@@ -35,6 +35,7 @@ import org.jax.qtln.snpsets.TabixSearcher;
 import org.jax.qtln.snpsets.SangerSNPFile;
 import org.jax.qtln.snpsets.UNCSNPFile;
 import org.jax.qtln.snpsets.UNCSangerCombinedSNPFile;
+import org.jax.qtln.snpsets.NIEHSSNPFile;
 import org.jax.qtln.snpsets.TabixReader;
 
 /**
@@ -68,9 +69,10 @@ public class HaplotypeAnalyzer implements Runnable {
     private SangerSNPFile sangerSNPFile;
     private UNCSNPFile uncSNPFile;
     private UNCSangerCombinedSNPFile uncSangerSNPFile;
+    private NIEHSSNPFile niehsSNPFile;
     private CGDSnpDB snpLookup;
 
-    public enum SNPType {sanger, unc, unc_sanger, cgd_imputed};
+    public enum SNPType {sanger, unc, unc_sanger, cgd_imputed, niehs};
     
     // Default snptype is Sanger
     private SNPType snpType = SNPType.sanger;
@@ -113,6 +115,11 @@ public class HaplotypeAnalyzer implements Runnable {
     public HaplotypeAnalyzer (UNCSangerCombinedSNPFile uncSangerSNPs) {
         this.uncSangerSNPFile = uncSangerSNPs;
         this.snpType = SNPType.unc_sanger;
+    }
+
+    public HaplotypeAnalyzer (NIEHSSNPFile niehsSNPs) {
+        this.niehsSNPFile = niehsSNPs;
+        this.snpType = SNPType.niehs;
     }
 
     /**
@@ -180,6 +187,8 @@ public class HaplotypeAnalyzer implements Runnable {
             returnRegion = getSnpsInRegion(chromosome, region, (TabixSearcher)this.uncSNPFile);
         } else if (this.snpType == SNPType.unc_sanger) {
             returnRegion = getSnpsInRegion(chromosome, region, (TabixSearcher)this.uncSangerSNPFile);
+        } else if (this.snpType == SNPType.niehs) {
+            returnRegion = getSnpsInRegion(chromosome, region, (TabixSearcher)this.niehsSNPFile);
         }
         return returnRegion;
     } 

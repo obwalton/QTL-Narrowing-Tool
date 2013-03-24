@@ -53,6 +53,7 @@ import org.jax.qtln.regions.SNP;
 import org.jax.qtln.snpsets.SangerSNPFile;
 import org.jax.qtln.snpsets.UNCSNPFile;
 import org.jax.qtln.snpsets.UNCSangerCombinedSNPFile;
+import org.jax.qtln.snpsets.NIEHSSNPFile;
 
 
 /**
@@ -110,6 +111,7 @@ public class QTLServiceImpl extends RemoteServiceServlet implements
     private static SangerSNPFile sangerSNPFile;
     private static UNCSNPFile uncSNPFile;
     private static UNCSangerCombinedSNPFile uncSangerSNPFile;
+    private static NIEHSSNPFile niehsSNPFile;
 
     /** init
      * Runs inititalizations that must occur before methods of servlet are run.
@@ -183,6 +185,10 @@ public class QTLServiceImpl extends RemoteServiceServlet implements
                 (String) context.getAttribute("UNCSANGER_INIT_STATUS"));
         QTLServiceImpl.uncSangerSNPFile =
                 (UNCSangerCombinedSNPFile)context.getAttribute("uncSangerSNPs");
+        System.out.println("NIEHS INITIALIZATION = " + 
+                (String) context.getAttribute("NIEHS_INIT_STATUS"));
+        QTLServiceImpl.niehsSNPFile =
+                (NIEHSSNPFile)context.getAttribute("niehsSNPs");
       
         
         //  If any of these were not provided with user properties, we'll
@@ -261,6 +267,7 @@ public class QTLServiceImpl extends RemoteServiceServlet implements
         String[] sanger_strains = new String[0];
         String[] unc_strains = new String[0];
         String[] unc_sanger_strains = new String[0];
+        String[] niehs_strains = new String[0];
         String[] cgd_imputed_strains = new String[0];
         boolean found_strains = false;
         if (QTLServiceImpl.cgdSNPLookup != null) {
@@ -315,6 +322,18 @@ public class QTLServiceImpl extends RemoteServiceServlet implements
             found_strains = true;
         }
         
+        System.out.println("Now get NIEHS Strains...");
+        
+        if (QTLServiceImpl.niehsSNPFile != null) {
+            List<String> strain_list = QTLServiceImpl.niehsSNPFile.getStrains();
+            System.out.println("There are " + strain_list.size() + " NIEHS strains.");
+            for (String strain: strain_list) {
+                System.out.println(strain);
+            }
+            niehs_strains = strain_list.toArray(new String[0]);
+            found_strains = true;
+        }
+        
         if (found_strains) {
             if (sanger_strains.length > 0) {
                 strains.put("sanger", sanger_strains);
@@ -330,6 +349,11 @@ public class QTLServiceImpl extends RemoteServiceServlet implements
                 strains.put("unc_sanger", unc_sanger_strains);
                 System.out.println("Returning " + unc_sanger_strains.length + 
                         " unc sanger strains");
+            }
+            if (niehs_strains.length > 0) {
+                strains.put("niehs", niehs_strains);
+                System.out.println("Returning " + niehs_strains.length + 
+                        " niehs strains");
             }
             if (cgd_imputed_strains.length > 0) {
                 strains.put("cgd_imputed", cgd_imputed_strains);
@@ -433,6 +457,9 @@ public class QTLServiceImpl extends RemoteServiceServlet implements
             } else if (snpSet.equals("unc_sanger")) {
                 
                 haplotypeAnalyzer = new HaplotypeAnalyzer(this.uncSangerSNPFile);
+            } else if (snpSet.equals("niehs")) {
+                
+                haplotypeAnalyzer = new HaplotypeAnalyzer(this.niehsSNPFile);
             }
             try {
                 // TESTING threading for peformance improvement using the

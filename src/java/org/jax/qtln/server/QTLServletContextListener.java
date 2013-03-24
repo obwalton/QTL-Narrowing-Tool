@@ -39,6 +39,7 @@ import org.xml.sax.SAXException;
 import org.jax.qtln.snpsets.SangerSNPFile;
 import org.jax.qtln.snpsets.UNCSNPFile;
 import org.jax.qtln.snpsets.UNCSangerCombinedSNPFile;
+import org.jax.qtln.snpsets.NIEHSSNPFile;
 
 /**
  *
@@ -62,6 +63,7 @@ public class QTLServletContextListener implements ServletContextListener {
     private String sangerSnpFile = "/Users/dow/workspace/cgd/RV/test_data/20110602-final-snps.vcf.gz";
     private String uncSnpFile = "/Users/dow/workspace/cgd/RV/test_data/UNC_88_Combined.txt.gz";
     private String uncSangerSnpFile = "/Users/dow/workspace/cgd/RV/test_data/new.Sanger.UNC.Combined.SNPs.txt.gz";
+    private String niehsSnpFile = "/Users/dow/workspace/QTLN/4M_mousehapmap_perlegen_imputed_full_HC.tab.gz";
     //  TODO: come up with a clever way of dealing with file name with changing
     //  version and build
     private String imputedSnpsBaseName =
@@ -234,7 +236,7 @@ public class QTLServletContextListener implements ServletContextListener {
             sc.setAttribute("UNC_INIT_STATUS","FAIL");
         }
 
-        //  Set up the Sanger SNP File for searching Sanger SNPs
+        //  Set up the combined UNC Sanger SNP File for searching SNPs
         try {
             UNCSangerCombinedSNPFile ussnpf = initUNCSangerSNP(sc);
             sc.setAttribute("uncSangerSNPs", ussnpf);
@@ -243,6 +245,17 @@ public class QTLServletContextListener implements ServletContextListener {
             sc.log("Failure setting up UNC Sanger Combined SNPs...");
             sc.log(e.getMessage());
             sc.setAttribute("UNCSANGER_INIT_STATUS","FAIL");
+        }
+        
+        //  Set up the NIEHS SNP File for searching SNPs
+        try {
+            NIEHSSNPFile niehssnpf = initNIEHSSNP(sc);
+            sc.setAttribute("niehsSNPs", niehssnpf);
+            sc.setAttribute("NIEHS_INIT_STATUS","SUCCESS");
+        } catch (Exception e) {
+            sc.log("Failure setting up NIEHS SNPs...");
+            sc.log(e.getMessage());
+            sc.setAttribute("NIEHS_INIT_STATUS","FAIL");
         }
         
         //  Set up the SNP Database
@@ -370,6 +383,12 @@ public class QTLServletContextListener implements ServletContextListener {
         UNCSangerCombinedSNPFile uncSangerSNPs = new UNCSangerCombinedSNPFile(this.uncSangerSnpFile);
         sc.log("***** CONSTRUCTED UNCSangerSNPFile. Has " + uncSangerSNPs.getStrains().size() + " Strains associated with it!");
         return uncSangerSNPs;
+    }
+
+    private NIEHSSNPFile initNIEHSSNP(ServletContext sc) {
+        NIEHSSNPFile niehsSNPs = new NIEHSSNPFile(this.niehsSnpFile);
+        sc.log("***** CONSTRUCTED NIEHSSNPFile. Has " + niehsSNPs.getStrains().size() + " Strains associated with it!");
+        return niehsSNPs;
     }
 
     private HashMap<String, SNPFile> initSnpDB(ServletContext sc)
@@ -603,6 +622,11 @@ public class QTLServletContextListener implements ServletContextListener {
         if (p.containsKey("unc_sanger_snp_file_name")){
             this.uncSangerSnpFile =
                     p.getProperty("unc_sanger_snp_file_name");
+        }
+        
+        if (p.containsKey("niehs_snp_file_name")){
+            this.niehsSnpFile =
+                    p.getProperty("niehs_snp_file_name");
         }
         
         if (p.containsKey("data_directory")) {
