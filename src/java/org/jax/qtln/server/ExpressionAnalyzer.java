@@ -297,6 +297,11 @@ public class ExpressionAnalyzer {
                 for (String probe : probeIds) {
                     int probe_pos = this.probes.indexOf(probe);
                     for (String strain : region.getHighRespondingStrains()) {
+                        // If the strain is not in the list of valid
+                        // Strains in the expression experiment, skip.
+                        if (! this.strainXRef.containsKey(strain)) {
+                            continue;
+                        }
                         String expStrain = this.strainXRef.get(strain);
                         List<String> strainSamples =
                                 this.strainLookup.get(expStrain);
@@ -319,6 +324,11 @@ public class ExpressionAnalyzer {
                         }
                     }
                     for (String strain : region.getLowRespondingStrains()) {
+                        // If the strain is not in the list of valid
+                        // Strains in the expression experiment, skip.
+                        if (! this.strainXRef.containsKey(strain)) {
+                            continue;
+                        }
                         String expStrain = this.strainXRef.get(strain);
                         List<String> strainSamples =
                                 this.strainLookup.get(expStrain);

@@ -524,7 +524,7 @@ public class QTLServiceImpl extends RemoteServiceServlet implements
             ExpressionAnalyzer analyzeGEX = null;
             if (doGEX) {
                 //   TODO: For StrainXRef -  add code to ExpressionAnalyzer to leverage this lookup dependent upon data set being used.
-                Map<String, String> xRef = this.strainXRef.get(snpSet);
+                Map<String, String> xRef = this.strainXRef.get(snpSet.toUpperCase());
                 //  If LUNG Experiment
                 if (gexExp.equals("lung"))
                     analyzeGEX = new ExpressionAnalyzer(probeSetLookup, mgiLookup,

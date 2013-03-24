@@ -338,7 +338,7 @@ public class QTLServletContextListener implements ServletContextListener {
                     //  Get all snp set names...
                     for (int i = 0; i < header.length; i++) {
                         //this.strainBaseCalls.put(cols[i], new WAHBitSet());
-                        xref.put(header[i].trim(), new HashMap<String, String>());
+                        xref.put(header[i].trim().toUpperCase(), new HashMap<String, String>());
                     }
                     continue;
                 } //  Create a HashMap lookup for each column other than 1st
@@ -349,10 +349,10 @@ public class QTLServletContextListener implements ServletContextListener {
                     // "other" col has an entry
                     for (int i = 1; i < cols.length; i++) {
                         if (!("".equals(cols[i].trim()))) {
-                            Map<String, String> map = xref.get(header[i]);
+                            Map<String, String> map = xref.get(header[i].toUpperCase());
                             // Add each of the maps to the xref by column name
                             map.put(cols[i].trim(), master);
-                            xref.put(header[i], map);   // not really necessary
+                            xref.put(header[i].toUpperCase(), map);   // not really necessary
                         }
                     }
                 }
