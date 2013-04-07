@@ -265,8 +265,8 @@ public class OverlappingRegion implements Region, Serializable {
         String symbol;
         String name;
         // Order of presidence of IDs to show:
-        // Diversity array, NIEHS, Celera, Broad, GNF, Wild-Derived
-        String[] otherIdOrder = {"17", "1", "13", "2", "6", "18"};
+        // Sanger, Imputed Wang, NIEHS, Diversity array, Celera, Broad, GNF, Wild-Derived
+        String[] otherIdOrder = {"15","21", "1", "17", "13", "2", "6", "19"};
         for (List row:details) {
             Integer position = (Integer)row.get(1);
             SNP snp = this.snps.get(position);
