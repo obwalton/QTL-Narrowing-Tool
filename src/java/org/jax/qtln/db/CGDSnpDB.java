@@ -193,6 +193,7 @@ public class CGDSnpDB {
         }
     }
 
+    /*
     public List<String> getImputedStrainList()
             throws SQLException
     {
@@ -233,7 +234,7 @@ public class CGDSnpDB {
         }
         return results;
 
-    }
+    }*/
 
     public Map<Integer,String> getSNPLocFuncList() 
             throws SQLException
@@ -277,21 +278,22 @@ public class CGDSnpDB {
         private Connection connection;
         private String chromosome;
         private List<Integer> bpPosList;
+        private String source_code;
 
-        public SNPDetailFetcher(Connection conn, String chromosome, List<Integer> bpPosList) {
+        public SNPDetailFetcher(Connection conn, String chromosome, List<Integer> bpPosList, String source_code) {
+            this.source_code = source_code;
             this.connection = conn;
             this.chromosome = chromosome;
             //System.out.println("Contructing for chromosome " + chromosome);
             this.bpPosList = bpPosList;
         }
 
-        public List<List> call1() throws SQLException {
+        /*public List<List> call1() throws SQLException {
             List<List> results = new ArrayList<List>();
             String tempTable = "create temporary table _bp_pos ( bp_position INTEGER NOT NULL PRIMARY KEY );";
             String detail_cmd = "select distinct s.snpid, sp.bp_position, "
                     + "st._loc_func_key, st.gene_id, g.gene_start, g.gene_end, "
-                    + //"mgi.mgi_geneid, mgi.marker_symbol, mgi.marker_name, " +
-                    "(select mgi_geneid from cgd_genes_ensembl_mgi where gene_id = st.gene_id) mgi_geneid, "
+                    + "(select mgi_geneid from cgd_genes_ensembl_mgi where gene_id = st.gene_id) mgi_geneid, "
                     + "(select marker_symbol from cgd_genes_ensembl_mgi where gene_id = st.gene_id) marker_symbol, "
                     + "(select marker_name from cgd_genes_ensembl_mgi where gene_id = st.gene_id) marker_name, "
                     + "sa.accession_id as rs_number, sa2.accession_id as provider_id, "
@@ -331,18 +333,6 @@ public class CGDSnpDB {
                 //}
                 connection.setAutoCommit(false);
                 PreparedStatement st = connection.prepareStatement(sql);
-                /*
-                 * System.out.println("Writing example out file"); try {
-                 * FileOutputStream fstream = new
-                 * FileOutputStream("/Users/dow/workspace/QTLN/exampleSnps.txt");
-                 * // Get the object of DataInputStream DataOutputStream out =
-                 * new DataOutputStream(fstream); BufferedWriter bw = new
-                 * BufferedWriter(new OutputStreamWriter(out)); String strLine;
-                 * //Read File Line By Line for (Integer position: bpPosList) {
-                 * bw.write(position.toString()); bw.newLine(); } //Close the
-                 * input stream out.close(); } catch (Exception e) {
-                 * e.printStackTrace(); }
-                 */
 
                 System.out.println("Creating insert statements and adding to batch...");
                 for (Integer position : bpPosList) {
@@ -413,7 +403,7 @@ public class CGDSnpDB {
                 }
             }
             return results;
-        }
+        }*/
         
         public List<List> call() throws SQLException {
             List<List> results = new ArrayList<List>();
@@ -449,9 +439,13 @@ public class CGDSnpDB {
             // snpid_type_id will only bring back RS numbers
             detail_cmd += ")"
                     + "and sp.snpid = s.snpid "
-                    + "and s.snpid = ss.snpid "
-                    + "and ss.source_id in (15, 16, 21) "
-                    + "and s.snpid = st.snpid "
+                    + "and s.snpid = ss.snpid ";
+            if (this.source_code.startsWith("(")) {
+                detail_cmd += "and ss.source_id in " + this.source_code;
+            } else {
+                detail_cmd += "and ss.source_id = " + this.source_code;
+            }
+            detail_cmd += " and s.snpid = st.snpid "
                     + "and st.gene_id = mgi.gene_id "
                     + "and st.gene_id = g.gene_id "
                     + "order by sp.bp_position, s.snpid";
@@ -504,6 +498,8 @@ public class CGDSnpDB {
 
         
     }
+    
+    String source_code = "1";
     /**
      * getSNPDetail is intended to get all the SNPs on the given chromosome,
      * in the list of positions.  It uses the CGDSnpDB class
@@ -513,9 +509,14 @@ public class CGDSnpDB {
      * returns columns for: snpid, bp_position, _loc_func_key, gene_id, and
      * mgi_geneid (mgi accession id)
      */
-    public List<List> getSNPDetails(String chromosome, List<Integer> bpPosList)
+    public List<List> getSNPDetails(String chromosome, List<Integer> bpPosList, String snpset)
             throws SQLException
     {
+        if (snpset.equals("UNC")) this.source_code = "21";
+        else if (snpset.equals("SANGER")) this.source_code = "15";
+        else if (snpset.equals("NIEHS"))  this.source_code = "1";
+        else if (snpset.equals("UNC_SANGER")) this.source_code = "(15, 21)";
+        
         System.out.println("Begin processing for CHROMOSOME = " + chromosome);
         List<List<Integer>> bins = new ArrayList<List<Integer>>();
         List<List> results = new ArrayList<List>();
@@ -537,7 +538,7 @@ public class CGDSnpDB {
                 //  for each subset regions
                 Connection conn = this.getConnection();
                 Callable<List<List>> callable = new SNPDetailFetcher(conn, 
-                        chromosome, subSet);
+                        chromosome, subSet, this.source_code);
                 Future<List<List>> future = executor.submit(callable);
                 set.add(future);
                 //conn.close();
@@ -605,7 +606,7 @@ public class CGDSnpDB {
 
 
 
-            querySnpDB.getSNPDetails("1", bpPosList);
+            querySnpDB.getSNPDetails("1", bpPosList, "SANGER");
         } catch (Exception e) {
             e.printStackTrace();
         }
