@@ -581,7 +581,7 @@ public class QTLServiceImpl extends RemoteServiceServlet implements
 
                             // Pull SNP "details" from CGD SNP DB
                             List<List> details = snpDb.getSNPDetails(
-                                    region.getChromosome(), snps);
+                                    region.getChromosome(), snps, snpSet.toUpperCase());
                             OverlappingRegion oRegion =
                                     (OverlappingRegion) region;
                             //  Add details to our underlying data structure
