@@ -45,18 +45,15 @@ SAM-Picard-1.5.6
 Data resources
 CGD SNP DB
 Sanger SNPs
-CGD Imputed SNPs
+UNC's Jeremy Wang Imputed SNPs
+NEIHS 4M SNPs
 Mouse Genome Database
 Lung Strain Survey
-Liver Strain Survey
+Keith Shockley's Liver Strain Survey
+John Sundberg's Alopecia areata data sets
 Need to copy gxt images folder to qtl-narrowing-tool/web/resources/images/
 
 Tomcat Resources:
 
 Tomcat must be started with:  -Xms500m -Xmx4G
 
-Temporary authentication
-For the time being we are keeping the app private using basic tomcat auth.
-Place a tomcat-users.xml file in the $TOMCAT/conf directory with the role
-"qtlusers" and then make sure the web.xml file in web/WEB-INF contains the
-authentication lines found in the web.xml in the root directory.
