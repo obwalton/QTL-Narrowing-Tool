@@ -104,11 +104,9 @@ public class UNCSNPFile extends TabixSearcher {
         //  init the ref and alt to blank
         char ref = ' ';
         char alt = ' ';
-        // TODO: If any of the strains start with 1/1, 1/0 or 0/1 there
-        // is a snp
         String hr_call = "";
         boolean first = true;
-        SNP snp = new SNP(Integer.parseInt(tokens[1]));
+        SNP snp = new SNP(Integer.parseInt(pos));
         for (String strain : hrstrains) {
             //  invalid strain throw exception
             int strain_idx = this.strains.indexOf(strain);
@@ -117,6 +115,7 @@ public class UNCSNPFile extends TabixSearcher {
                         strain + " is not a valid strain!";
                 throw new SNPDoesNotMeetCriteriaException(msg);
             }
+            //  Index needs to be times 2 because every other is a confidence score
             strain_idx = (strain_idx * 2) + UNCSNPFile.STRAIN_START_COLUMN;
             String value = tokens[strain_idx];
             String confidence = tokens[strain_idx + 1];
