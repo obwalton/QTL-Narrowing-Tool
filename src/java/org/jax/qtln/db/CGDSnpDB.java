@@ -513,7 +513,9 @@ public class CGDSnpDB {
             throws SQLException
     {
         if (snpset.equals("UNC")) this.source_code = "21";
-        else if (snpset.equals("SANGER")) this.source_code = "15";
+        // it appears lucie has the sanger snps under UNC
+        //else if (snpset.equals("SANGER")) this.source_code = "15";
+        else if (snpset.equals("SANGER")) this.source_code = "21";
         else if (snpset.equals("NIEHS"))  this.source_code = "1";
         else if (snpset.equals("UNC_SANGER")) this.source_code = "(15, 21)";
         
