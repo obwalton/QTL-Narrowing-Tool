@@ -119,22 +119,40 @@ public class SangerSNPFile extends TabixSearcher {
             String value = tokens[strain_idx];
             
             if (first) {
-                if (value.startsWith("1/1") || value.startsWith("0/1") || 
+                /*if (value.startsWith("1/1") || value.startsWith("0/1") || 
                     value.startsWith("1/0")) {
                     hr_call = "1";
                 } else {
                     hr_call = "0";
+                }*/
+                if (value.startsWith("0/0") ) {
+                    hr_call = "0";
+                } else if (value.startsWith("./.")) {
+                    String msg = "First High responding strain " + strain + 
+                            " has a non-call at base and cannot be used.";
+                    throw new SNPDoesNotMeetCriteriaException(msg);
+                } else {
+                    hr_call = "1";
                 }
                 first = false;
             } else {
-                if ((hr_call.equals("0")  && (value.startsWith("1/1") || 
+                /*if ((hr_call.equals("0")  && (value.startsWith("1/1") || 
                         value.startsWith("0/1") || 
                     value.startsWith("1/0"))) || (hr_call.equals("1") && 
                         value.startsWith("0/0"))) {
                     String msg = "Nonmatching high responding strain base values.";
                     throw new SNPDoesNotMeetCriteriaException(msg);
                    
-                }
+                }*/
+                if ((hr_call.equals("0")  && (! value.startsWith("0/0"))) || (hr_call.equals("1") && 
+                        value.startsWith("0/0"))) {
+                    String msg = "Nonmatching high responding strain base values.";
+                    throw new SNPDoesNotMeetCriteriaException(msg);
+                }  else if (value.startsWith("./.")) {
+                    String msg = "One of High responding strains " + strain + 
+                            " has a non-call at base and cannot be used.";
+                    throw new SNPDoesNotMeetCriteriaException(msg);
+                } 
             }
         }
         if (hr_call.equals("1"))
@@ -156,22 +174,41 @@ public class SangerSNPFile extends TabixSearcher {
             String value = tokens[strain_idx];
             
             if (first) {
-                if (value.startsWith("1/1") || value.startsWith("0/1") || 
+                /*if (value.startsWith("1/1") || value.startsWith("0/1") || 
                     value.startsWith("1/0")) {
                     lr_call = "1";
                 } else {
                     lr_call = "0";
+                }*/
+                if (value.startsWith("0/0") ) {
+                    lr_call = "0";
+                } else if (value.startsWith("./.")) {
+                    String msg = "First Low responding strain " + strain + 
+                            " has a non-call at base and cannot be used.";
+                    throw new SNPDoesNotMeetCriteriaException(msg);
+                } else {
+                    lr_call = "1";
                 }
                 if (lr_call.equals(hr_call)) {
                     String msg = "High and low responding strain base calls are the same. ";
                     throw new SNPDoesNotMeetCriteriaException(msg);
-                }
+                }  else if (value.startsWith("./.")) {
+                    String msg = "One of Low responding strains " + strain + 
+                            " has a non-call at base and cannot be used.";
+                    throw new SNPDoesNotMeetCriteriaException(msg);
+                } 
             } else {
-                if ((lr_call.equals("0")  && (value.startsWith("1/1") || 
+                /*if ((lr_call.equals("0")  && (value.startsWith("1/1") || 
                         value.startsWith("0/1") || 
                     value.startsWith("1/0"))) || (lr_call.equals("1") && 
                         value.startsWith("0/0"))) {
                     String msg = "Nonmatching low responding strain base values.";
+                    throw new SNPDoesNotMeetCriteriaException(msg);     
+                }*/
+                if ((lr_call.equals("0")  && (! value.startsWith("0/0"))) || 
+                        (lr_call.equals("1") && 
+                        value.startsWith("0/0"))) {
+                    String msg = "Nonmatching high responding strain base values.";
                     throw new SNPDoesNotMeetCriteriaException(msg);
                    
                 }
