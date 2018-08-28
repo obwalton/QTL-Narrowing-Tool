@@ -2,6 +2,7 @@ QTL Narrowing Tool
 ------------------
 Software written by Dave Walton
 Concept by Annerose Berndt
+Created: May 2011
 
 This project was originally developed for the Bev Paigen Lab and Annerose Berndt
 at the Jackson Laboratory.  At the Lab, the software was released as an alpha 
