@@ -1,19 +1,30 @@
 QTL Narrowing Tool
+------------------
 Software written by Dave Walton
 Concept by Annerose Berndt
 
-This project was developed for the Bev Paigen Lab and Annerose Berndt
-at the Jackson Laboratory.  At the Jackson Laboratory the software was
-released as an alpha for testing.  Developing is continuing under the 
-direction of Annerose Berndt at University Pittsburg.
+This project was originally developed for the Bev Paigen Lab and Annerose Berndt
+at the Jackson Laboratory.  At the Lab, the software was released as an alpha 
+for testing.  When Annerose moved to a faculty position at the University of
+Pittsburg, it was agreed that JAX had no ongoing interest in further
+development of the tool, and that Dave could continue working on the 
+application on his own time for Annerose.
+Development continued under the direction of Annerose Berndt at University 
+Pittsburg, for approximately another year or two.
+
+The software was deployed on servers at Pittsburg for Dr. Berndt's use,
+but eventually the project was abandoned.  The software is being relocated
+from Bitbucket to Github, just so Dave does not lose track of it, but
+this is now an inactive project developed under a tech stack that would
+be considered dated and obsolete.
 
 Any questions about the software can be directed to Annerose  
 (anb128 at pitt dot edu) or Dave Walton 
 (david dot o dot walton at gmail dot com).
 
 
-Copyright
-
+The software is being made available under an MIT licence which can be
+found in the LICENSE.txt file in the root directory.
 
 Dependencies
 ------------
@@ -43,6 +54,7 @@ solr 1.4.1 specific libraries:
 SAM-Picard-1.5.6 
 
 Data resources
+--------------
 CGD SNP DB
 Sanger SNPs
 UNC's Jeremy Wang Imputed SNPs
@@ -54,6 +66,6 @@ John Sundberg's Alopecia areata data sets
 Need to copy gxt images folder to qtl-narrowing-tool/web/resources/images/
 
 Tomcat Resources:
-
+-----------------
 Tomcat must be started with:  -Xms500m -Xmx4G
 
